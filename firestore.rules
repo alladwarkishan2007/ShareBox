@@ -1,0 +1,213 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isApproved() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserData().status == 'approved';
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserData().role == 'admin';
+    }
+
+    function isOrganizer() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (getUserData().role == 'organizer' || getUserData().role == 'admin');
+    }
+
+    function isNotRestricted() {
+      return !('restrictedUntil' in getUserData()) ||
+        getUserData().restrictedUntil == null ||
+        getUserData().restrictedUntil < request.time;
+    }
+
+    function isEventMember(eventId) {
+      return eventId == 'campus-general' ||
+        exists(/databases/$(database)/documents/events/$(eventId)/members/$(request.auth.uid)) ||
+        isAdmin();
+    }
+
+    // --- Users Collection ---
+    match /users/{uid} {
+      // Approved users or self can view profiles
+      allow read: if isAuthenticated() && (isApproved() || isOwner(uid) || isAdmin());
+      
+      // User can create their initial profile upon registration
+      allow create: if isOwner(uid) &&
+        request.resource.data.role == 'member' &&
+        request.resource.data.status in ['pending', 'approved'] &&
+        request.resource.data.warningsCount == 0 &&
+        request.resource.data.restrictedUntil == null;
+
+      // Users can update their own personal info (cannot promote role or status or clear restrictions)
+      allow update: if isOwner(uid) &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.warningsCount == resource.data.warningsCount &&
+        request.resource.data.restrictedUntil == resource.data.restrictedUntil;
+
+      // Admin has full control over user roles, statuses, and penalties
+      allow update, delete: if isAdmin();
+    }
+
+    // --- Events Collection ---
+    match /events/{eventId} {
+      allow read: if isApproved();
+      allow create: if isOrganizer();
+      allow update, delete: if isAdmin() || (isOrganizer() && resource.data.createdBy == request.auth.uid);
+
+      match /members/{memberUid} {
+        allow read: if isApproved();
+        // User can join an event
+        allow create: if isApproved() && isOwner(memberUid);
+        allow delete: if isApproved() && (isOwner(memberUid) || isAdmin());
+      }
+    }
+
+    // --- Item Requests Collection ---
+    match /requests/{requestId} {
+      allow read: if isApproved() && isEventMember(resource.data.eventId);
+      
+      // Creating request requires approved user, not restricted, member of event
+      allow create: if isApproved() &&
+        isNotRestricted() &&
+        request.resource.data.requesterId == request.auth.uid &&
+        request.resource.data.status == 'open' &&
+        isEventMember(request.resource.data.eventId);
+
+      // Status transitions & updates
+      allow update: if isApproved() && (
+        isAdmin() ||
+        // Accept request ("I have this"): Must be open, helper must be caller, user not restricted
+        (
+          resource.data.status == 'open' &&
+          request.resource.data.status == 'accepted' &&
+          request.resource.data.helperId == request.auth.uid &&
+          isNotRestricted() &&
+          request.auth.uid != resource.data.requesterId
+        ) ||
+        // Cancel request: requester can cancel before handover
+        (
+          resource.data.requesterId == request.auth.uid &&
+          resource.data.status in ['open', 'accepted'] &&
+          request.resource.data.status == 'cancelled'
+        ) ||
+        // Handover confirmation: Requester or Helper updating handover state
+        (
+          resource.data.status in ['accepted', 'handed_over'] &&
+          (resource.data.requesterId == request.auth.uid || resource.data.helperId == request.auth.uid)
+        ) ||
+        // Return confirmation: Borrower marking returned or owner marking received
+        (
+          resource.data.status in ['handed_over', 'returned', 'completed'] &&
+          (resource.data.requesterId == request.auth.uid || resource.data.helperId == request.auth.uid)
+        ) ||
+        // Damage reporting: Owner of item transitions to damage_reported
+        (
+          resource.data.status in ['handed_over', 'returned'] &&
+          request.resource.data.status == 'damage_reported' &&
+          (
+            (resource.data.type == 'request' && resource.data.helperId == request.auth.uid) ||
+            (resource.data.type == 'offer' && resource.data.requesterId == request.auth.uid)
+          )
+        ) ||
+        // Proposing or confirming meeting point
+        (
+          (resource.data.requesterId == request.auth.uid || resource.data.helperId == request.auth.uid) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['meetingPoint', 'updatedAt'])
+        )
+      );
+
+      allow delete: if isAdmin() || (resource.data.requesterId == request.auth.uid && resource.data.status == 'open');
+
+      // Chat Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isApproved() && (
+          get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid ||
+          get(/databases/$(database)/documents/requests/$(requestId)).data.helperId == request.auth.uid ||
+          isAdmin()
+        );
+        allow create: if isApproved() && (
+          get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid ||
+          get(/databases/$(database)/documents/requests/$(requestId)).data.helperId == request.auth.uid
+        ) && request.resource.data.senderId == request.auth.uid;
+        
+        allow update: if isApproved() && (
+          get(/databases/$(database)/documents/requests/$(requestId)).data.requesterId == request.auth.uid ||
+          get(/databases/$(database)/documents/requests/$(requestId)).data.helperId == request.auth.uid
+        );
+      }
+    }
+
+    // --- WebRTC Calls Collection ---
+    match /calls/{callId} {
+      allow read, write: if isApproved() && (
+        request.resource.data.callerId == request.auth.uid ||
+        request.resource.data.calleeId == request.auth.uid ||
+        resource.data.callerId == request.auth.uid ||
+        resource.data.calleeId == request.auth.uid
+      );
+
+      match /callerCandidates/{candidateId} {
+        allow read, write: if isApproved();
+      }
+
+      match /calleeCandidates/{candidateId} {
+        allow read, write: if isApproved();
+      }
+    }
+
+    // --- Damage Reports Collection ---
+    match /damageReports/{reportId} {
+      allow read: if isApproved() && (
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.borrowerId == request.auth.uid ||
+        isOrganizer() ||
+        isAdmin()
+      );
+
+      allow create: if isApproved() && request.resource.data.ownerId == request.auth.uid;
+
+      // Borrower can add rebuttal response
+      allow update: if isApproved() && (
+        (resource.data.borrowerId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['borrowerResponse', 'status'])) ||
+        isOrganizer() ||
+        isAdmin()
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    // --- Campus Landmarks Collection ---
+    match /landmarks/{landmarkId} {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+
+    // --- In-App Notifications Collection ---
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+  }
+}

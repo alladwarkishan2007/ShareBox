@@ -1,0 +1,124 @@
+:root {
+  /* Brand & Primary Colors */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-light: #eff6ff;
+  --color-primary-focus: rgba(37, 99, 235, 0.25);
+  --color-accent: #06b6d4;
+
+  /* Semantic Feedback */
+  --color-success: #16a34a;
+  --color-success-light: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-warning: #d97706;
+  --color-warning-light: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-danger: #dc2626;
+  --color-danger-light: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-info: #0284c7;
+  --color-info-light: #f0f9ff;
+  --color-info-border: #bae6fd;
+
+  /* Request Status Color Tokens */
+  --status-open: #2563eb;
+  --status-open-bg: #eff6ff;
+  --status-accepted: #d97706;
+  --status-accepted-bg: #fffbeb;
+  --status-handed-over: #6366f1;
+  --status-handed-over-bg: #eef2ff;
+  --status-returned: #8b5cf6;
+  --status-returned-bg: #f5f3ff;
+  --status-completed: #16a34a;
+  --status-completed-bg: #f0fdf4;
+  --status-cancelled: #64748b;
+  --status-cancelled-bg: #f1f5f9;
+  --status-expired: #94a3b8;
+  --status-expired-bg: #f8fafc;
+  --status-damage-reported: #e11d48;
+  --status-damage-reported-bg: #fff1f2;
+
+  /* Urgency Colors */
+  --urgency-low: #475569;
+  --urgency-low-bg: #f1f5f9;
+  --urgency-medium: #0284c7;
+  --urgency-medium-bg: #e0f2fe;
+  --urgency-high: #ea580c;
+  --urgency-high-bg: #ffedd5;
+  --urgency-urgent: #e11d48;
+  --urgency-urgent-bg: #ffe4e6;
+
+  /* Surfaces & Backgrounds */
+  --bg-app: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-raised: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-muted: #e2e8f0;
+
+  /* Text & Foreground */
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-subtle: #94a3b8;
+  --text-inverse: #ffffff;
+  --text-on-primary: #ffffff;
+
+  /* Borders & Dividers */
+  --border-subtle: #e2e8f0;
+  --border-main: #cbd5e1;
+  --border-strong: #94a3b8;
+
+  /* Typography Scale */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --font-xs: 0.75rem;     /* 12px */
+  --font-sm: 0.875rem;    /* 14px */
+  --font-base: 1rem;      /* 16px */
+  --font-md: 1.125rem;    /* 18px */
+  --font-lg: 1.25rem;     /* 20px */
+  --font-xl: 1.5rem;      /* 24px */
+  --font-2xl: 1.875rem;   /* 30px */
+
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Spacing Scale (4px increments) */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+
+  /* Border Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Z-Index Layers */
+  --z-base: 1;
+  --z-nav: 50;
+  --z-dropdown: 60;
+  --z-toast: 100;
+  --z-modal-backdrop: 200;
+  --z-modal: 210;
+  --z-call: 300;
+}

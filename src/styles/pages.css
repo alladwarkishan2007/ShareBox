@@ -1,0 +1,304 @@
+/* Page Layouts & Specific Components */
+
+/* Landing Page */
+.hero-section {
+  padding: var(--space-12) 0 var(--space-8);
+  text-align: center;
+  background: radial-gradient(circle at top, var(--color-primary-light) 0%, transparent 70%);
+}
+
+.hero-logo-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.hero-logo-box {
+  width: 88px;
+  height: 88px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 50%, #60a5fa 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 16px 36px -8px rgba(37, 99, 235, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  transition: transform 0.3s ease;
+}
+
+.hero-logo-box:hover {
+  transform: scale(1.05) rotate(-2deg);
+}
+
+.hero-title {
+  font-size: clamp(2.75rem, 6vw, 4rem);
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  color: var(--text-main);
+  line-height: 1.1;
+  margin-bottom: var(--space-3);
+}
+
+.hero-subtitle {
+  font-size: var(--font-lg);
+  color: var(--text-muted);
+  max-width: 680px;
+  line-height: 1.6;
+  margin: 0 auto var(--space-6);
+}
+
+.hero-actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  margin-top: var(--space-8);
+}
+
+/* Feature Cards with Hover Border Shadow & Lift */
+.feature-card,
+.feature-grid .card {
+  position: relative;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+  cursor: default;
+}
+
+.feature-card:hover,
+.feature-grid .card:hover {
+  transform: translateY(-6px);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1.5px rgba(59, 130, 246, 0.4),
+              0 16px 32px -6px rgba(37, 99, 235, 0.24),
+              0 6px 14px -4px rgba(15, 23, 42, 0.12);
+}
+
+.feature-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  display: inline-block;
+  transition: transform 0.25s ease;
+}
+
+.feature-card:hover .feature-icon,
+.feature-grid .card:hover .feature-icon {
+  transform: scale(1.18);
+}
+
+@media (min-width: 640px) {
+  .hero-title { font-size: 3rem; }
+  .feature-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Auth Pages (Login / Signup / Forgot) */
+.auth-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 160px);
+  padding: var(--space-6) var(--space-4);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+}
+
+/* Dashboard & Request Feed */
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  padding-top: var(--space-6);
+}
+
+@media (min-width: 768px) {
+  .dashboard-layout {
+    grid-template-columns: 260px 1fr;
+  }
+}
+
+.feed-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--bg-surface);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  height: fit-content;
+}
+
+.requests-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+@media (min-width: 640px) {
+  .requests-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-6);
+  }
+}
+
+/* Request Detail Page */
+.detail-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  padding-top: var(--space-6);
+}
+
+@media (min-width: 900px) {
+  .detail-layout {
+    grid-template-columns: 3fr 2fr;
+  }
+}
+
+/* Chat Component */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 520px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.chat-header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-messages {
+  flex: 1;
+  padding: var(--space-4);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.chat-bubble {
+  max-width: 75%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-sm);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.chat-bubble-sent {
+  align-self: flex-end;
+  background-color: var(--color-primary);
+  color: var(--text-on-primary);
+  border-bottom-right-radius: var(--radius-xs);
+}
+
+.chat-bubble-received {
+  align-self: flex-start;
+  background-color: var(--bg-subtle);
+  color: var(--text-main);
+  border-bottom-left-radius: var(--radius-xs);
+}
+
+.chat-bubble-time {
+  font-size: var(--font-xs);
+  opacity: 0.75;
+  margin-top: 2px;
+  text-align: right;
+}
+
+.chat-input-bar {
+  padding: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* WebRTC Call Overlay */
+.call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-call);
+  background: rgba(15, 23, 42, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.call-card {
+  background: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  box-shadow: var(--shadow-xl);
+}
+
+.call-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-2xl);
+  font-weight: var(--fw-bold);
+  position: relative;
+}
+
+.call-pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-primary);
+  animation: pulse-ring 1.8s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
+/* Map Picker Container */
+.map-picker-container {
+  height: 340px;
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-main);
+  margin-top: var(--space-2);
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+}

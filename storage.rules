@@ -1,0 +1,38 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isValidImage() {
+      return request.resource.size < 5 * 1024 * 1024 &&
+             request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
+    }
+
+    // Request item photos
+    match /requests/{requestId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidImage();
+    }
+
+    // Handover condition photos
+    match /handovers/{requestId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidImage();
+    }
+
+    // Damage report evidence photos
+    match /damage_reports/{reportId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isValidImage();
+    }
+
+    // Profile photos
+    match /avatars/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId && isValidImage();
+    }
+  }
+}

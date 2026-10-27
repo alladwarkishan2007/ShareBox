@@ -1,0 +1,308 @@
+# ==============================================================
+#  STRICT .gitignore  (security-first)
+#  Put this file in the ROOT of your project folder.
+#  NOTE: .gitignore only affects files Git is not tracking yet.
+#  Anything already committed must be untracked with:
+#      git rm --cached <file>      (keeps the file on your PC)
+# ==============================================================
+
+
+# --------------------------------------------------------------
+# 1. SECRETS: environment files, API keys, tokens, passwords
+# --------------------------------------------------------------
+.env
+.env.*
+*.env
+!.env.example
+!.env.sample
+!.env.template
+.envrc
+secrets/
+.secrets/
+secret/
+credentials/
+private/
+*.secret
+*.secrets
+secrets.*
+secret.*
+*.local
+*.local.*
+config.local.*
+settings.local.*
+local.settings.json
+appsettings.Development.json
+appsettings.Production.json
+
+# API / cloud credential files
+credentials.json
+credentials.*.json
+client_secret*.json
+client_secrets.json
+token.json
+tokens.json
+service-account*.json
+serviceAccount*.json
+serviceAccountKey*.json
+firebase-adminsdk*.json
+firebase-debug.log
+.firebase/
+google-services.json
+GoogleService-Info.plist
+*-credentials.json
+*.credentials
+.aws/
+.azure/
+.gcloud/
+.kube/
+kubeconfig
+*.kubeconfig
+
+# Package-manager / tool auth tokens
+.npmrc
+.yarnrc
+.yarnrc.yml
+.pypirc
+.netrc
+_netrc
+.git-credentials
+.docker/config.json
+.htpasswd
+.htaccess.local
+
+# Infrastructure state & variables (often contain passwords)
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+.terraform/
+
+# CMS configs that hold DB passwords
+wp-config.php
+configuration.php
+
+
+# --------------------------------------------------------------
+# 2. KEYS & CERTIFICATES
+# --------------------------------------------------------------
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+*.jks
+*.keystore
+*.ppk
+*.gpg
+*.pgp
+*.kdbx
+id_rsa
+id_rsa.*
+id_dsa
+id_ecdsa
+id_ed25519
+id_ed25519.*
+*.ovpn
+.ssh/
+
+
+# --------------------------------------------------------------
+# 3. DATABASES: files, dumps, backups (real data never goes to Git)
+#    Keep ONLY a structure-only schema file (see exceptions below).
+# --------------------------------------------------------------
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite3-journal
+*.mdb
+*.accdb
+*.sql
+*.sql.gz
+*.sql.zip
+*.dump
+*.bak
+*.backup
+*.ibd
+*.frm
+*.MYD
+*.MYI
+*.rdb
+dump.rdb
+data/
+database/private/
+db/private/
+mysql-data/
+pgdata/
+mongo-data/
+
+# Exceptions: structure-only SQL you DO want to share
+!schema.sql
+!**/schema.sql
+!*.example.sql
+!*.sample.sql
+
+
+# --------------------------------------------------------------
+# 4. USER UPLOADS & PERSONAL DATA
+# --------------------------------------------------------------
+uploads/*
+!uploads/.gitkeep
+user-uploads/*
+!user-uploads/.gitkeep
+storage/private/
+exports/
+backups/
+backup/
+*.csv.private
+*.private
+*.private.*
+
+# Uncomment if your project has data exports you do not want shared:
+# *.csv
+# *.xlsx
+# *.xls
+
+
+# --------------------------------------------------------------
+# 5. DEPENDENCIES (re-installable, huge, never commit)
+# --------------------------------------------------------------
+node_modules/
+jspm_packages/
+bower_components/
+vendor/
+.pnp
+.pnp.js
+.yarn/cache/
+.yarn/unplugged/
+.yarn/install-state.gz
+.pnpm-store/
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.ipynb_checkpoints/
+.gradle/
+.m2/
+
+
+# --------------------------------------------------------------
+# 6. BUILD OUTPUT, CACHES, COVERAGE
+# --------------------------------------------------------------
+dist/
+build/
+out/
+target/
+.next/
+.nuxt/
+.svelte-kit/
+.output/
+.angular/
+.expo/
+.cache/
+.parcel-cache/
+.turbo/
+.vite/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+coverage/
+.nyc_output/
+*.lcov
+*.map
+
+
+# --------------------------------------------------------------
+# 7. LOGS, TEMP FILES, CRASH DUMPS
+# --------------------------------------------------------------
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.pid
+*.seed
+*.pid.lock
+tmp/
+temp/
+.tmp/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+*.orig
+*.rej
+*.stackdump
+core.[0-9]*
+*.dmp
+hs_err_pid*
+
+
+# --------------------------------------------------------------
+# 8. OS JUNK
+# --------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+
+# --------------------------------------------------------------
+# 9. EDITORS, IDEs & AI-ASSISTANT LOCAL STATE
+#    (can contain chat history, tokens, absolute paths)
+#    Remove a line if you intentionally want to share that folder.
+# --------------------------------------------------------------
+.idea/
+.vscode/
+.vs/
+.history/
+*.code-workspace
+*.iml
+*.sublime-workspace
+*.sublime-project
+.antigravity/
+.agent/
+.gemini/
+.claude/
+.cursor/
+.windsurf/
+.continue/
+.aider*
+.copilot/
+
+
+# --------------------------------------------------------------
+# 10. ARCHIVES & EXECUTABLES (accidental binary dumps)
+# --------------------------------------------------------------
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.tgz
+*.exe
+*.msi
+*.dll
+*.apk
+*.ipa

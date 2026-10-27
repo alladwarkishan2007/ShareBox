@@ -1,0 +1,1121 @@
+import { store } from '../services/store.js';
+import { locationService } from '../services/location.service.js';
+import { reportsService } from '../services/reports.service.js';
+import { modal } from '../components/modal.js';
+import { toast } from '../components/toast.js';
+import { escapeHTML } from '../utils/sanitize.js';
+import { isValidEmail } from '../utils/validators.js';
+
+export async function renderAdminDashboardPage(container, { user }) {
+  let activeTab = 'users'; // 'users' | 'requests' | 'events' | 'reports' | 'landmarks' | 'system'
+  let userFilter = 'all'; // 'all' | 'pending' | 'approved' | 'admins' | 'restricted'
+  let userSearchTerm = '';
+  let showAllPasswords = false;
+  let reqFilter = 'all'; // 'all' | 'open' | 'accepted' | 'completed'
+  let reportFilter = 'all'; // 'all' | 'pending' | 'resolved'
+
+  const renderContent = async () => {
+    const allUsers = await store.getDocs('users');
+    const allRequests = await store.getDocs('requests');
+    const allEvents = await store.getDocs('events');
+    const allReports = await store.getDocs('damageReports');
+    const landmarks = await locationService.getCampusLandmarks();
+
+    const totalReqs = allRequests.length;
+    const completedReqs = allRequests.filter(r => r.status === 'completed').length;
+    const openReqs = allRequests.filter(r => r.status === 'open').length;
+    const completionRate = totalReqs > 0 ? Math.round((completedReqs / totalReqs) * 100) : 100;
+    const staffUsers = allUsers.filter(u => ['admin', 'organizer'].includes(u.role)).length;
+    const restrictedUsers = allUsers.filter(u => u.status === 'blocked' || (u.restrictedUntil && new Date(u.restrictedUntil) > new Date())).length;
+    const pendingDisputes = allReports.filter(r => r.status !== 'resolved').length;
+
+    // Sort newest registrations first
+    allUsers.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    container.innerHTML = `
+      <div style="width: 100%; max-width: 100%; padding: var(--space-6) var(--space-6); padding-bottom: var(--space-12); box-sizing: border-box;">
+        <!-- Title Header -->
+        <div class="flex justify-between items-center" style="margin-bottom: var(--space-6);">
+          <div>
+            <h1 class="text-xl font-bold">Admin Dashboard</h1>
+            <p class="text-sm text-muted">Manage campus users, requests, events, and dispute operations.</p>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs with Distinct Section Colors -->
+        <div class="flex gap-3 flex-wrap items-center" style="border-bottom: 2px solid var(--border-subtle); padding-bottom: var(--space-4); margin-bottom: var(--space-6);">
+          <button class="tab-btn btn ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}" data-tab="users" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'users' ? 'background: #2563eb; color: #ffffff; border-color: #2563eb; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);' : 'background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;'}">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'users' ? '#ffffff' : '#2563eb'}; margin-right: 6px;"></span>Users (${allUsers.length})
+          </button>
+          <button class="tab-btn btn ${activeTab === 'requests' ? 'btn-primary' : 'btn-secondary'}" data-tab="requests" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'requests' ? 'background: #059669; color: #ffffff; border-color: #059669; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);' : 'background: #ecfdf5; color: #047857; border-color: #a7f3d0;'}">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'requests' ? '#ffffff' : '#059669'}; margin-right: 6px;"></span>Requests (${allRequests.length})
+          </button>
+          <button class="tab-btn btn ${activeTab === 'events' ? 'btn-primary' : 'btn-secondary'}" data-tab="events" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'events' ? 'background: #7c3aed; color: #ffffff; border-color: #7c3aed; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);' : 'background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe;'}">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'events' ? '#ffffff' : '#7c3aed'}; margin-right: 6px;"></span>Events (${allEvents.length})
+          </button>
+          <button class="tab-btn btn ${activeTab === 'reports' ? 'btn-primary' : 'btn-secondary'}" data-tab="reports" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'reports' ? 'background: #dc2626; color: #ffffff; border-color: #dc2626; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);' : 'background: #fef2f2; color: #b91c1c; border-color: #fecaca;'}">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'reports' ? '#ffffff' : '#dc2626'}; margin-right: 6px;"></span>Disputes (${allReports.length})
+          </button>
+          <button class="tab-btn btn ${activeTab === 'landmarks' ? 'btn-primary' : 'btn-secondary'}" data-tab="landmarks" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'landmarks' ? 'background: #d97706; color: #ffffff; border-color: #d97706; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);' : 'background: #fffbeb; color: #b45309; border-color: #fde68a;'}">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'landmarks' ? '#ffffff' : '#d97706'}; margin-right: 6px;"></span>Landmarks (${landmarks.length})
+          </button>
+        </div>
+
+        <!-- Main Dynamic Tab Panel Container -->
+        <div id="admin-tab-content"></div>
+
+        <!-- Database Utilities Footer -->
+        <div style="margin-top: var(--space-8); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+          <div class="flex justify-between items-center flex-wrap gap-3">
+            <span class="text-xs text-muted">System Database Actions</span>
+            <div class="flex gap-2">
+              <button id="export-db-btn" class="btn btn-secondary btn-sm">Export Database</button>
+              <button id="reset-db-btn" class="btn btn-danger btn-sm">Reset to Seed State</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const tabArea = container.querySelector('#admin-tab-content');
+
+    // ==========================================
+    // TAB 1: USERS & PASSWORDS DIRECTORY
+    // ==========================================
+    if (activeTab === 'users') {
+      tabArea.innerHTML = `
+        <div class="card" style="border-top: 3px solid #2563eb;">
+          <div class="card-header flex justify-between items-center flex-wrap gap-3" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+            <div class="flex items-center gap-3">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #2563eb;"></span>
+              <h2 class="text-lg font-bold" style="color: #1e3a8a; margin: 0; font-size: 1.25rem;">Users Directory</h2>
+            </div>
+            <div class="flex gap-2 items-center flex-wrap">
+              <div style="position: relative; width: 260px;">
+                <input type="text" id="admin-user-search" class="form-input" placeholder="Search members..." value="${escapeHTML(userSearchTerm)}" style="padding: 0.4rem 0.75rem 0.4rem 2rem; font-size: var(--font-xs);">
+                <svg style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              </div>
+              <button id="toggle-all-pwd-btn" class="btn btn-secondary btn-sm">
+                ${showAllPasswords ? 'Hide Passwords' : 'Show Passwords'}
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Filters Bar -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle);">
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-filter="all">
+              All (${allUsers.length})
+            </button>
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'admins' ? 'btn-primary' : 'btn-secondary'}" data-filter="admins">
+              Admins & Organizers (${staffUsers})
+            </button>
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'restricted' ? 'btn-primary' : 'btn-secondary'}" data-filter="restricted">
+              Restricted (${restrictedUsers})
+            </button>
+            <span id="user-count-badge" class="text-xs text-muted" style="margin-left: auto;">
+              Loading...
+            </span>
+          </div>
+
+          <!-- Users Table -->
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem; border: 1px solid var(--border-subtle);">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border-subtle);">
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 20%; background: #eff6ff; color: #1e40af;">
+                    <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #2563eb; margin-right: 6px;"></span>Member Profile
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 26%; background: #f0fdf4; color: #166534;">
+                    <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #16a34a; margin-right: 6px;"></span>Email
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 16%; background: #f8fafc; color: #334155;">
+                    <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #64748b; margin-right: 6px;"></span>Plaintext Password
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 14%; background: #fff7ed; color: #9a3412;">
+                    <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ea580c; margin-right: 6px;"></span>Branch & Year
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 8%; background: #f5f3ff; color: #5b21b6;">
+                    Role
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 7%; background: #f8fafc; color: #334155;">
+                    Status
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; text-align: right; width: 9%; background: #f8fafc; color: #334155;">
+                    Admin Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      const searchInput = tabArea.querySelector('#admin-user-search');
+      const tbody = tabArea.querySelector('#admin-users-tbody');
+      const countBadge = tabArea.querySelector('#user-count-badge');
+
+      // Function to render user table rows dynamically
+      const renderUserTableRows = (usersList) => {
+        if (usersList.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="padding: var(--space-8); text-align: center;" class="text-muted">
+                <div>No members match the current filter or search criteria</div>
+                <div class="text-xs" style="margin-top: 4px;">Try clearing the search box or selecting "All Members".</div>
+              </td>
+            </tr>
+          `;
+          countBadge.textContent = '0 members shown';
+          return;
+        }
+
+        countBadge.textContent = `Showing ${usersList.length} of ${allUsers.length} members`;
+
+        tbody.innerHTML = usersList.map((u, idx) => {
+          const uid = u.uid || u.id;
+          const pwd = u.password || 'password123';
+          const isBlocked = u.status === 'blocked';
+          const isRestricted = u.restrictedUntil && new Date(u.restrictedUntil) > new Date();
+          const isNew = u.createdAt && (Date.now() - new Date(u.createdAt).getTime() < 48 * 3600 * 1000);
+
+          const rowBg = isBlocked ? '#fff5f5' : 'transparent';
+          const rowBorderLeft = isBlocked ? '3px solid var(--color-danger)' : '3px solid transparent';
+
+          return `
+            <tr style="background: ${rowBg}; border-left: ${rowBorderLeft}; border-bottom: 1px solid var(--border-subtle);">
+              <!-- Member Profile -->
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle); background: #fbfdff;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div style="width: 32px; height: 32px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0; border: 1.5px solid #bfdbfe;">
+                    ${escapeHTML((u.name || u.email || 'M')[0].toUpperCase())}
+                  </div>
+                  <div>
+                    <div style="font-weight: var(--fw-semibold); display: flex; align-items: center; gap: 6px; color: #1e3a8a;">
+                      ${escapeHTML(u.name || 'Member')}
+                      ${isNew ? `<span class="badge" style="background: var(--color-success); color: white; font-size: 9px; padding: 1px 4px;">NEW</span>` : ''}
+                    </div>
+                    <div class="text-xs text-muted">${escapeHTML(u.phone || 'No phone')}</div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Email Capsule -->
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle); background: #fcfdfc;">
+                <div style="font-size: var(--font-xs); font-family: monospace; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: var(--radius-sm); word-break: break-all; display: inline-block; font-weight: 500;" title="${escapeHTML(u.email)}">
+                  ${escapeHTML(u.email)}
+                </div>
+              </td>
+
+              <!-- Plaintext Password Capsule (Neutral Styling - No Purple) -->
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle); background: #f8fafc;">
+                <div class="flex items-center gap-2">
+                  <span class="user-pwd-display font-mono text-xs" data-uid="${escapeHTML(uid)}" data-pwd="${escapeHTML(pwd)}" style="background: #e2e8f0; border: 1px solid #cbd5e1; color: #0f172a; font-weight: 600; padding: 4px 8px; border-radius: var(--radius-sm); letter-spacing: ${showAllPasswords ? 'normal' : '2px'};">
+                    ${showAllPasswords ? escapeHTML(pwd) : '••••••••'}
+                  </span>
+                  <button type="button" class="btn btn-secondary btn-xs toggle-single-pwd-btn" data-uid="${escapeHTML(uid)}" style="font-size: 10px; padding: 2px 6px;">
+                    ${showAllPasswords ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </td>
+
+              <!-- Department & Year -->
+              <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid var(--border-subtle);">
+                <div style="color: #9a3412; font-weight: 500;">${escapeHTML(u.department || 'General Branch')}</div>
+                <div class="text-muted">${escapeHTML(u.year ? `Year ${u.year}` : 'Standard')}</div>
+              </td>
+
+              <!-- Role Pill -->
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
+                <button class="badge change-role-btn" data-uid="${escapeHTML(uid)}" data-current-role="${escapeHTML(u.role || 'member')}" title="Click to modify role" style="cursor: pointer; border: 1px solid var(--border-subtle); background: ${u.role === 'admin' ? 'var(--color-primary)' : u.role === 'organizer' ? '#7e22ce' : 'var(--bg-subtle)'}; color: ${u.role === 'admin' || u.role === 'organizer' ? 'white' : 'inherit'};">
+                  ${escapeHTML(u.role ? u.role.toUpperCase() : 'MEMBER')}
+                </button>
+              </td>
+
+              <!-- Status Badge (Active vs Blocked) -->
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
+                ${isBlocked ? `
+                  <span class="badge" style="background: #fee2e2; color: #991b1b;">
+                    <span class="status-dot status-dot-danger"></span> Blocked
+                  </span>
+                ` : `
+                  <span class="badge" style="background: #ecfdf5; color: #047857;">
+                    <span class="status-dot status-dot-success"></span> Active
+                  </span>
+                `}
+                ${isRestricted ? `<div class="text-xs text-danger" style="margin-top: 2px;">Restricted</div>` : ''}
+              </td>
+
+              <!-- Action Buttons -->
+              <td style="padding: var(--space-3) var(--space-4); text-align: right; white-space: nowrap;">
+                <div class="flex gap-1 justify-end flex-wrap items-center">
+                  <button class="btn btn-secondary btn-xs edit-user-btn" data-uid="${escapeHTML(uid)}" title="Edit User & Credentials">
+                    Edit
+                  </button>
+                  ${!isBlocked ? `
+                    <button class="btn btn-xs block-user-btn" data-uid="${escapeHTML(uid)}" title="Block Access" style="background: #000000; color: #ffffff; border: 1px solid #000000; font-weight: 600;">
+                      Block
+                    </button>
+                  ` : `
+                    <button class="btn btn-success btn-xs unblock-user-btn" data-uid="${escapeHTML(uid)}" title="Restore Access">
+                      Unblock
+                    </button>
+                  `}
+                  ${(isRestricted || (u.warningsCount || 0) > 0) ? `
+                    <button class="btn btn-secondary btn-xs clear-penalty-btn" data-uid="${escapeHTML(uid)}" title="Clear Restrictions and Warnings">
+                      Clear Penalty
+                    </button>
+                  ` : ''}
+                  <button class="btn btn-danger btn-xs delete-user-btn" data-uid="${escapeHTML(uid)}" title="Permanently Delete Account">
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        // Attach action listeners for table row buttons
+        attachUserRowListeners();
+      };
+
+      // Filter and Search computation
+      const filterUsers = () => {
+        return allUsers.filter(u => {
+          // Status/role filter
+          if (userFilter === 'admins' && !['admin', 'organizer'].includes(u.role)) return false;
+          if (userFilter === 'restricted' && u.status !== 'blocked' && !(u.restrictedUntil && new Date(u.restrictedUntil) > new Date())) return false;
+
+          // Search term
+          if (!userSearchTerm) return true;
+          const q = userSearchTerm.toLowerCase();
+          return (
+            (u.name && u.name.toLowerCase().includes(q)) ||
+            (u.email && u.email.toLowerCase().includes(q)) ||
+            (u.department && u.department.toLowerCase().includes(q)) ||
+            (u.role && u.role.toLowerCase().includes(q)) ||
+            (u.phone && u.phone.toLowerCase().includes(q))
+          );
+        });
+      };
+
+      // Smooth search listener: never re-renders the input element!
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          userSearchTerm = e.target.value.trim();
+          renderUserTableRows(filterUsers());
+        });
+      }
+
+      // Filter chips click handler
+      tabArea.querySelectorAll('.user-filter-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          userFilter = chip.getAttribute('data-filter');
+          // Update active filter chip styles
+          tabArea.querySelectorAll('.user-filter-chip').forEach(c => {
+            const isTarget = c.getAttribute('data-filter') === userFilter;
+            c.className = `user-filter-chip btn btn-xs ${isTarget ? 'btn-primary' : 'btn-secondary'}`;
+          });
+          renderUserTableRows(filterUsers());
+        });
+      });
+
+      // Toggle All Passwords Button
+      const toggleAllBtn = tabArea.querySelector('#toggle-all-pwd-btn');
+      if (toggleAllBtn) {
+        toggleAllBtn.addEventListener('click', () => {
+          showAllPasswords = !showAllPasswords;
+          toggleAllBtn.textContent = showAllPasswords ? 'Hide All Passwords' : 'Show All Passwords';
+          tabArea.querySelectorAll('.user-pwd-display').forEach(span => {
+            const raw = span.getAttribute('data-pwd');
+            span.textContent = showAllPasswords ? raw : '••••••••';
+            span.style.letterSpacing = showAllPasswords ? 'normal' : '2px';
+          });
+          tabArea.querySelectorAll('.toggle-single-pwd-btn').forEach(b => {
+            b.textContent = showAllPasswords ? 'Hide' : 'Show';
+          });
+        });
+      }
+
+      // Attach row-level listeners (called whenever rows are rendered)
+      const attachUserRowListeners = () => {
+        // Individual Password Toggle
+        tbody.querySelectorAll('.toggle-single-pwd-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const uid = btn.getAttribute('data-uid');
+            const span = tbody.querySelector(`.user-pwd-display[data-uid="${uid}"]`);
+            if (span) {
+              const raw = span.getAttribute('data-pwd');
+              const isHidden = span.textContent.trim() === '••••••••';
+              span.textContent = isHidden ? raw : '••••••••';
+              span.style.letterSpacing = isHidden ? 'normal' : '2px';
+              btn.textContent = isHidden ? 'Hide' : 'Show';
+            }
+          });
+        });
+
+        // Block User
+        tbody.querySelectorAll('.block-user-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const uid = btn.getAttribute('data-uid');
+            if (confirm('Block this user from accessing ShareBox?')) {
+              try {
+                await store.updateDoc('users', uid, { status: 'blocked' });
+                toast.warning('User account blocked.');
+                renderContent();
+              } catch (e) {
+                toast.error(e.message);
+              }
+            }
+          });
+        });
+
+        // Unblock User
+        tbody.querySelectorAll('.unblock-user-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const uid = btn.getAttribute('data-uid');
+            try {
+              await store.updateDoc('users', uid, { status: 'approved' });
+              toast.success('User access restored.');
+              renderContent();
+            } catch (e) {
+              toast.error(e.message);
+            }
+          });
+        });
+
+        // Clear Penalties & Restrictions
+        tbody.querySelectorAll('.clear-penalty-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const uid = btn.getAttribute('data-uid');
+            if (confirm('Clear all borrowing restrictions and warning points for this user?')) {
+              try {
+                await store.updateDoc('users', uid, { restrictedUntil: null, warningsCount: 0 });
+                toast.success('Restrictions and warnings cleared!');
+                renderContent();
+              } catch (e) {
+                toast.error(e.message);
+              }
+            }
+          });
+        });
+
+        // Delete User Permanently
+        tbody.querySelectorAll('.delete-user-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const uid = btn.getAttribute('data-uid');
+            if (confirm('Are you sure you want to PERMANENTLY delete this user account? This cannot be undone.')) {
+              try {
+                await store.deleteDoc('users', uid);
+                toast.success('User account deleted.');
+                renderContent();
+              } catch (e) {
+                toast.error(e.message);
+              }
+            }
+          });
+        });
+
+        // Change Role Button
+        tbody.querySelectorAll('.change-role-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const uid = btn.getAttribute('data-uid');
+            const currentRole = btn.getAttribute('data-current-role');
+            const targetUser = allUsers.find(u => (u.uid === uid || u.id === uid));
+            if (!targetUser) return;
+
+            modal.open({
+              title: `Change Role for ${targetUser.name}`,
+              contentHTML: `
+                <div class="form-group">
+                  <label class="form-label" for="select-user-role">Assign Platform Role <span class="required">*</span></label>
+                  <select id="select-user-role" class="form-select">
+                    <option value="member" ${currentRole === 'member' ? 'selected' : ''}>Student Member (Standard borrowing & lending)</option>
+                    <option value="organizer" ${currentRole === 'organizer' ? 'selected' : ''}>Event Organizer (Create campus events, coordinate equipment)</option>
+                    <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>Platform Administrator (Full system controls & oversight)</option>
+                  </select>
+                </div>
+              `,
+              confirmText: 'Save Role',
+              onConfirm: async () => {
+                const newRole = document.getElementById('select-user-role').value;
+                await store.updateDoc('users', uid, { role: newRole });
+                toast.success(`Role updated to "${newRole.toUpperCase()}"!`);
+                renderContent();
+              }
+            });
+          });
+        });
+
+        // Edit User & Password Modal
+        tbody.querySelectorAll('.edit-user-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const uid = btn.getAttribute('data-uid');
+            const target = allUsers.find(u => (u.uid === uid || u.id === uid));
+            if (!target) return;
+
+            modal.open({
+              title: `Edit User: ${target.name}`,
+              contentHTML: `
+                <div class="form-group">
+                  <label class="form-label" for="edit-name">Full Name <span class="required">*</span></label>
+                  <input type="text" id="edit-name" class="form-input" value="${escapeHTML(target.name || '')}" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="edit-email">Email Address <span class="required" style="color: var(--color-danger); font-weight: bold;">* (Compulsory)</span></label>
+                  <input type="email" id="edit-email" class="form-input" value="${escapeHTML(target.email || '')}" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="edit-pwd">Account Password <span class="required">*</span></label>
+                  <input type="text" id="edit-pwd" class="form-input font-mono" value="${escapeHTML(target.password || 'password123')}" required>
+                </div>
+                <div class="flex gap-4">
+                  <div class="form-group flex-1">
+                    <label class="form-label" for="edit-role">Role</label>
+                    <select id="edit-role" class="form-select">
+                      <option value="member" ${target.role === 'member' ? 'selected' : ''}>Member</option>
+                      <option value="organizer" ${target.role === 'organizer' ? 'selected' : ''}>Organizer</option>
+                      <option value="admin" ${target.role === 'admin' ? 'selected' : ''}>Admin</option>
+                    </select>
+                  </div>
+                  <div class="form-group flex-1">
+                    <label class="form-label" for="edit-status">Status</label>
+                    <select id="edit-status" class="form-select">
+                      <option value="approved" ${target.status !== 'blocked' ? 'selected' : ''}>Active</option>
+                      <option value="blocked" ${target.status === 'blocked' ? 'selected' : ''}>Blocked</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="flex gap-4">
+                  <div class="form-group flex-1">
+                    <label class="form-label" for="edit-dept">Department</label>
+                    <input type="text" id="edit-dept" class="form-input" value="${escapeHTML(target.department || '')}">
+                  </div>
+                  <div class="form-group flex-1">
+                    <label class="form-label" for="edit-phone">Phone</label>
+                    <input type="text" id="edit-phone" class="form-input" value="${escapeHTML(target.phone || '')}">
+                  </div>
+                </div>
+              `,
+              confirmText: 'Save Changes',
+              onConfirm: async () => {
+                const name = document.getElementById('edit-name').value.trim();
+                const email = document.getElementById('edit-email').value.trim();
+                const password = document.getElementById('edit-pwd').value;
+                const role = document.getElementById('edit-role').value;
+                const status = document.getElementById('edit-status').value;
+                const department = document.getElementById('edit-dept').value.trim();
+                const phone = document.getElementById('edit-phone').value.trim();
+
+                if (!name) { toast.error('Name is required.'); throw new Error(); }
+                if (!email) { toast.error('Email is compulsory.'); throw new Error(); }
+                if (!isValidEmail(email)) { toast.error('Valid email is required.'); throw new Error(); }
+                if (!password) { toast.error('Password is required.'); throw new Error(); }
+
+                await store.updateDoc('users', uid, {
+                  name,
+                  email,
+                  password,
+                  role,
+                  status,
+                  department,
+                  phone
+                });
+
+                toast.success('User updated successfully!');
+                renderContent();
+              }
+            });
+          });
+        });
+      };
+
+      // Initial render of user rows
+      renderUserTableRows(filterUsers());
+    }
+
+    // ==========================================
+    // TAB 2: ALL CAMPUS REQUESTS & ITEMS (WITH CLICKABLE REDIRECT TO DETAILS)
+    // ==========================================
+    else if (activeTab === 'requests') {
+      const filteredRequests = allRequests.filter(r => {
+        if (reqFilter === 'open') return r.status === 'open';
+        if (reqFilter === 'accepted') return ['accepted', 'handed_over', 'returned'].includes(r.status);
+        if (reqFilter === 'completed') return r.status === 'completed';
+        return true;
+      });
+
+      tabArea.innerHTML = `
+        <div class="card" style="border-top: 3px solid #059669;">
+          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+            <div class="flex items-center gap-3">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #059669;"></span>
+              <h2 class="text-lg font-bold" style="color: #065f46; margin: 0; font-size: 1.25rem;">Campus Requests</h2>
+            </div>
+            <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">
+              ${allRequests.length} Total
+            </span>
+          </div>
+
+          <!-- Status Filter Pills Bar -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle);">
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="all">
+              All (${allRequests.length})
+            </button>
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'open' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="open">
+              Open (${openReqs})
+            </button>
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'accepted' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="accepted">
+              In-Progress (${allRequests.filter(r => ['accepted', 'handed_over', 'returned'].includes(r.status)).length})
+            </button>
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'completed' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="completed">
+              Completed (${completedReqs})
+            </button>
+          </div>
+
+          <!-- Requests Table -->
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: var(--font-sm); border: 1px solid var(--border-subtle);">
+              <thead>
+                <tr style="background: #f1f5f9; border-bottom: 2px solid var(--border-subtle);">
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 28%;">Equipment / Item Name</th>
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 14%;">Category & Qty</th>
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 20%;">Requester & Helper</th>
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 12%;">Needed By</th>
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 10%;">Status</th>
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); text-align: right; width: 16%;">Admin Control</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredRequests.length === 0 ? `
+                  <tr><td colspan="6" style="padding: var(--space-8); text-align: center;" class="text-muted">No campus requests found under this filter.</td></tr>
+                ` : filteredRequests.map((r, idx) => `
+                  <tr style="border-bottom: 1px solid var(--border-subtle);">
+                    <!-- Item Title with Direct Clickable Redirect -->
+                    <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
+                      <a href="#/requests/${escapeHTML(r.id)}" class="item-link" title="Click to view details of ${escapeHTML(r.itemName)}" style="color: var(--color-primary); font-weight: var(--fw-semibold); text-decoration: underline;">
+                        ${escapeHTML(r.itemName || 'Equipment')}
+                      </a>
+                      <div class="text-xs text-muted" style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
+                        ${escapeHTML(r.description || 'No description provided')}
+                      </div>
+                    </td>
+                    <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
+                      <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">${escapeHTML(r.category || 'General')}</span>
+                      <div class="text-xs text-muted" style="margin-top: 2px;">Qty: <strong>${r.quantity || 1}</strong></div>
+                    </td>
+                    <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid var(--border-subtle);">
+                      <div>Requester: <strong>${escapeHTML(r.requesterName || 'Student')}</strong></div>
+                      ${r.helperName ? `<div style="color: var(--color-success); margin-top: 2px;">Helper: <strong>${escapeHTML(r.helperName)}</strong></div>` : '<div class="text-muted" style="margin-top: 2px;">No helper assigned yet</div>'}
+                    </td>
+                    <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid var(--border-subtle);">
+                      ${r.neededBy ? new Date(r.neededBy).toLocaleDateString() : 'ASAP'}
+                    </td>
+                    <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
+                      <span class="badge badge-status-${escapeHTML(r.status || 'open')}">
+                        ${escapeHTML(r.status || 'OPEN')}
+                      </span>
+                    </td>
+                    <td style="padding: var(--space-3) var(--space-4); text-align: right; white-space: nowrap;">
+                      <div class="flex gap-1 justify-end flex-wrap items-center">
+                        <a href="#/requests/${escapeHTML(r.id)}" class="btn btn-secondary btn-xs">
+                          View
+                        </a>
+                        ${r.status !== 'completed' ? `
+                          <button class="btn btn-success btn-xs force-complete-req-btn" data-id="${escapeHTML(r.id)}" title="Force Mark Completed">
+                            Complete
+                          </button>
+                        ` : ''}
+                        ${r.status !== 'open' ? `
+                          <button class="btn btn-secondary btn-xs force-reopen-req-btn" data-id="${escapeHTML(r.id)}" title="Re-open Request to Feed">
+                            Reopen
+                          </button>
+                        ` : ''}
+                        <button class="btn btn-danger btn-xs delete-req-btn" data-id="${escapeHTML(r.id)}" title="Permanently Delete Request">
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      // Filter clicks
+      tabArea.querySelectorAll('.req-filter-btn').forEach(b => {
+        b.addEventListener('click', () => {
+          reqFilter = b.getAttribute('data-req-filter');
+          renderContent();
+        });
+      });
+
+      // Force Complete Request
+      tabArea.querySelectorAll('.force-complete-req-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          await store.updateDoc('requests', id, { status: 'completed' });
+          toast.success('Request marked as completed.');
+          renderContent();
+        });
+      });
+
+      // Force Reopen Request
+      tabArea.querySelectorAll('.force-reopen-req-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          await store.updateDoc('requests', id, { status: 'open', helperId: null, helperName: null });
+          toast.info('Request reopened to campus feed.');
+          renderContent();
+        });
+      });
+
+      // Delete Request
+      tabArea.querySelectorAll('.delete-req-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          if (confirm('Permanently delete this item request record?')) {
+            await store.deleteDoc('requests', id);
+            toast.success('Request deleted.');
+            renderContent();
+          }
+        });
+      });
+    }
+
+    // ==========================================
+    // TAB 3: CAMPUS EVENTS MANAGEMENT
+    // ==========================================
+    else if (activeTab === 'events') {
+      tabArea.innerHTML = `
+        <div class="card" style="border-top: 3px solid #7c3aed;">
+          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+            <div class="flex items-center gap-3">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #7c3aed;"></span>
+              <h2 class="text-lg font-bold" style="color: #5b21b6; margin: 0; font-size: 1.25rem;">Campus Events & Hackathons</h2>
+            </div>
+            <button id="admin-create-event-btn" class="btn btn-primary btn-sm">+ Create Event</button>
+          </div>
+          <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4);">
+              ${allEvents.length === 0 ? `
+                <div class="text-muted" style="grid-column: 1 / -1; text-align: center; padding: var(--space-8);">No campus events registered yet.</div>
+              ` : allEvents.map(e => `
+                <div class="card" style="padding: var(--space-4); border: 1px solid var(--border-subtle);">
+                  <div class="flex justify-between items-start gap-2">
+                    <h4 class="text-sm font-bold" style="margin: 0;">${escapeHTML(e.title)}</h4>
+                    <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">${escapeHTML(e.type || 'Event')}</span>
+                  </div>
+                  <p class="text-xs text-muted" style="margin: var(--space-2) 0; line-height: 1.5;">${escapeHTML(e.description || 'Community resource coordination.')}</p>
+                  <div class="flex flex-col gap-1 text-xs" style="background: var(--bg-subtle); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); margin-bottom: var(--space-3);">
+                    <div><strong>Venue:</strong> ${escapeHTML(e.venue || 'Campus')}</div>
+                    <div><strong>Join Code:</strong> <span class="font-mono font-bold">${escapeHTML(e.joinCode || 'N/A')}</span></div>
+                    <div><strong>Participants:</strong> ${e.memberCount || 1} registered</div>
+                  </div>
+                  <div class="flex justify-end gap-2" style="border-top: 1px solid var(--border-subtle); padding-top: var(--space-2);">
+                    <a href="#/events/${escapeHTML(e.id)}" class="btn btn-secondary btn-xs">View Feed</a>
+                    <button class="btn btn-danger btn-xs delete-event-btn" data-id="${escapeHTML(e.id)}">Delete Event</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Admin Create Event Modal
+      const createEvtBtn = tabArea.querySelector('#admin-create-event-btn');
+      if (createEvtBtn) {
+        createEvtBtn.addEventListener('click', () => {
+          modal.open({
+            title: 'Admin: Create New Campus Event',
+            contentHTML: `
+              <div class="form-group">
+                <label class="form-label" for="evt-title">Event Title <span class="required">*</span></label>
+                <input type="text" id="evt-title" class="form-input" placeholder="e.g. Robocon Workshop 2026" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="evt-type">Type</label>
+                <select id="evt-type" class="form-select">
+                  <option value="Hackathon">Hackathon</option>
+                  <option value="Cultural Fest">Cultural Fest</option>
+                  <option value="Workshop">Workshop</option>
+                  <option value="Sports Tournament">Sports Tournament</option>
+                  <option value="Exhibition">Exhibition / Project Expo</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="evt-venue">Campus Venue</label>
+                <input type="text" id="evt-venue" class="form-input" placeholder="Main Auditorium" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="evt-code">Join Code (Students use this)</label>
+                <input type="text" id="evt-code" class="form-input font-mono" value="CAMPUS26" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="evt-desc">Event Description</label>
+                <textarea id="evt-desc" class="form-textarea" rows="2" placeholder="Equipment sharing details..."></textarea>
+              </div>
+            `,
+            confirmText: 'Publish Event',
+            onConfirm: async () => {
+              const title = document.getElementById('evt-title').value.trim();
+              const type = document.getElementById('evt-type').value;
+              const venue = document.getElementById('evt-venue').value.trim();
+              const joinCode = document.getElementById('evt-code').value.trim().toUpperCase();
+              const description = document.getElementById('evt-desc').value.trim();
+
+              if (!title) { toast.error('Title is required.'); throw new Error(); }
+
+              const id = 'evt_' + Math.random().toString(36).substring(2, 9);
+              await store.setDoc('events', id, {
+                id,
+                title,
+                type,
+                venue,
+                joinCode,
+                description,
+                createdBy: user?.uid || 'usr_admin',
+                creatorName: 'Campus Administrator',
+                isActive: true,
+                memberCount: 1,
+                createdAt: new Date().toISOString()
+              });
+
+              toast.success(`Published event "${title}"!`);
+              renderContent();
+            }
+          });
+        });
+      }
+
+      // Delete Event
+      tabArea.querySelectorAll('.delete-event-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          if (confirm('Delete this event and all associated sharing data?')) {
+            await store.deleteDoc('events', id);
+            toast.success('Event deleted.');
+            renderContent();
+          }
+        });
+      });
+    }
+
+    // ==========================================
+    // TAB 4: DAMAGE DISPUTES & PENALTIES
+    // ==========================================
+    else if (activeTab === 'reports') {
+      const filteredReports = allReports.filter(r => {
+        if (reportFilter === 'pending') return r.status !== 'resolved';
+        if (reportFilter === 'resolved') return r.status === 'resolved';
+        return true;
+      });
+
+      tabArea.innerHTML = `
+        <div class="card" style="border-top: 3px solid #dc2626;">
+          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+            <div class="flex items-center gap-3">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #dc2626;"></span>
+              <h2 class="text-lg font-bold" style="color: #991b1b; margin: 0; font-size: 1.25rem;">Equipment Damage Disputes</h2>
+            </div>
+            <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">
+              ${pendingDisputes} Pending Review
+            </span>
+          </div>
+
+          <!-- Filter Pills Bar -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle);">
+            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-rep-filter="all">
+              All (${allReports.length})
+            </button>
+            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'pending' ? 'btn-primary' : 'btn-secondary'}" data-rep-filter="pending">
+              Pending (${pendingDisputes})
+            </button>
+            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'resolved' ? 'btn-primary' : 'btn-secondary'}" data-rep-filter="resolved">
+              Resolved (${allReports.filter(r => r.status === 'resolved').length})
+            </button>
+          </div>
+
+          <div class="card-body">
+            ${filteredReports.length === 0 ? `
+              <div class="text-center text-muted" style="padding: var(--space-8);">No damage reports match the current filter.</div>
+            ` : `
+              <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+                ${filteredReports.map(r => {
+                  const isResolved = r.status === 'resolved';
+                  return `
+                    <div class="card" style="padding: var(--space-4); border-left: 4px solid ${isResolved ? 'var(--color-success)' : 'var(--color-danger)'};">
+                      <div class="flex justify-between items-start flex-wrap gap-2">
+                        <div>
+                          <div class="flex items-center gap-2">
+                            <span class="badge" style="background: ${isResolved ? 'var(--color-success)' : 'var(--color-danger)'}; color: white;">
+                              Dispute #${escapeHTML(r.id)}
+                            </span>
+                            <span class="badge ${isResolved ? 'badge-status-completed' : 'badge-status-open'}">
+                              ${escapeHTML(r.status ? r.status.toUpperCase() : 'SUBMITTED')}
+                            </span>
+                          </div>
+                          <div class="text-sm font-bold" style="margin-top: 6px;">
+                            Related Request: <a href="#/requests/${escapeHTML(r.requestId)}" style="color: var(--color-primary); text-decoration: underline;">#${escapeHTML(r.requestId)}</a>
+                          </div>
+                        </div>
+                        <div class="text-xs text-muted">Filed: ${new Date(r.createdAt).toLocaleString()}</div>
+                      </div>
+
+                      <div style="margin: var(--space-3) 0; font-size: var(--font-sm); line-height: 1.5;">
+                        <div style="background: var(--bg-subtle); padding: var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                          <strong style="display: block; margin-bottom: 2px;">Owner's Damage Claim:</strong>
+                          ${escapeHTML(r.description || 'No description filed')}
+                        </div>
+                        ${r.borrowerResponse ? `
+                          <div style="margin-top: var(--space-2); padding: var(--space-3); background: #f0fdf4; border-radius: var(--radius-sm); border-left: 3px solid var(--color-success); border: 1px solid #bbf7d0;">
+                            <strong style="color: var(--color-success); display: block; margin-bottom: 2px;">Borrower's Formal Rebuttal:</strong>
+                            ${escapeHTML(r.borrowerResponse)}
+                          </div>
+                        ` : '<div class="text-xs text-muted" style="margin-top: 6px; font-style: italic;">Borrower has not submitted a rebuttal yet.</div>'}
+                      </div>
+
+                      <div class="flex justify-end gap-2" style="border-top: 1px solid var(--border-subtle); padding-top: var(--space-3);">
+                        <a href="#/requests/${escapeHTML(r.requestId)}" class="btn btn-secondary btn-sm">View Request Details</a>
+                        <button class="btn btn-primary btn-sm resolve-dispute-btn" data-id="${escapeHTML(r.id)}" data-req="${escapeHTML(r.requestId)}" data-borrower="${escapeHTML(r.borrowerId)}">
+                          ${isResolved ? 'Update Decision' : 'Issue Decision'}
+                        </button>
+                        <button class="btn btn-danger btn-sm delete-report-btn" data-id="${escapeHTML(r.id)}">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            `}
+          </div>
+        </div>
+      `;
+
+      // Filter clicks
+      tabArea.querySelectorAll('.rep-filter-btn').forEach(b => {
+        b.addEventListener('click', () => {
+          reportFilter = b.getAttribute('data-rep-filter');
+          renderContent();
+        });
+      });
+
+      // Resolve Dispute Modal
+      tabArea.querySelectorAll('.resolve-dispute-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const reportId = btn.getAttribute('data-id');
+
+          modal.open({
+            title: `Administrative Decision: Dispute #${reportId}`,
+            contentHTML: `
+              <div class="form-group">
+                <label class="form-label" for="decision-action">Action / Penalty Verdict <span class="required">*</span></label>
+                <select id="decision-action" class="form-select">
+                  <option value="dismissed">Dismiss Report (No fault found / Accidental wear)</option>
+                  <option value="warning">Issue Official Warning to Borrower</option>
+                  <option value="restriction">Impose Borrowing Restriction</option>
+                  <option value="compensation_required">Require Direct Compensation Note</option>
+                </select>
+              </div>
+              <div class="form-group" id="restriction-days-group">
+                <label class="form-label" for="decision-days">Restriction Duration (Days)</label>
+                <select id="decision-days" class="form-select">
+                  <option value="7">7 Days</option>
+                  <option value="14">14 Days</option>
+                  <option value="30">30 Days</option>
+                  <option value="60">60 Days</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="decision-note">Official Findings & Resolution Note</label>
+                <textarea id="decision-note" class="form-textarea" rows="3" placeholder="Explain the rationale for this finding..."></textarea>
+              </div>
+            `,
+            confirmText: 'Execute Decision',
+            onConfirm: async () => {
+              const action = document.getElementById('decision-action').value;
+              const restrictionDays = action === 'restriction' ? parseInt(document.getElementById('decision-days').value, 10) : 0;
+              const note = document.getElementById('decision-note').value;
+
+              await reportsService.resolveReport({
+                reportId,
+                reviewerUser: user || { uid: 'usr_admin', name: 'Campus Administrator', role: 'admin' },
+                action,
+                restrictionDays,
+                note
+              });
+
+              toast.success('Dispute decision issued and applied!');
+              renderContent();
+            }
+          });
+        });
+      });
+
+      // Delete Report
+      tabArea.querySelectorAll('.delete-report-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          if (confirm('Delete this damage report permanently?')) {
+            await store.deleteDoc('damageReports', id);
+            toast.success('Report deleted.');
+            renderContent();
+          }
+        });
+      });
+    }
+
+    // ==========================================
+    // TAB 5: CAMPUS LANDMARKS
+    // ==========================================
+    else if (activeTab === 'landmarks') {
+      tabArea.innerHTML = `
+        <div class="card" style="border-top: 3px solid #d97706;">
+          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+            <div class="flex items-center gap-3">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #d97706;"></span>
+              <h2 class="text-lg font-bold" style="color: #92400e; margin: 0; font-size: 1.25rem;">Campus Meeting Landmarks</h2>
+            </div>
+            <button id="add-landmark-btn" class="btn btn-primary btn-sm">+ Add Landmark</button>
+          </div>
+          <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3);">
+              ${landmarks.map(lm => `
+                <div class="card" style="padding: var(--space-4); border: 1px solid var(--border-subtle);">
+                  <div class="flex justify-between items-start gap-2">
+                    <h4 class="text-sm font-bold" style="margin: 0;">${escapeHTML(lm.name)}</h4>
+                    <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">${escapeHTML(lm.category)}</span>
+                  </div>
+                  <div class="text-xs text-muted" style="margin-top: var(--space-2); font-family: monospace;">
+                    Lat: ${lm.lat}, Lng: ${lm.lng}
+                  </div>
+                  <div class="flex justify-end gap-1" style="margin-top: var(--space-3); border-top: 1px solid var(--border-subtle); padding-top: var(--space-2);">
+                    <button class="btn btn-danger btn-xs delete-lm-btn" data-id="${escapeHTML(lm.id)}">Delete</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Add Landmark Modal
+      const addLmBtn = tabArea.querySelector('#add-landmark-btn');
+      if (addLmBtn) {
+        addLmBtn.addEventListener('click', () => {
+          modal.open({
+            title: 'Add New Campus Landmark',
+            contentHTML: `
+              <div class="form-group">
+                <label class="form-label" for="lm-name">Landmark Name <span class="required">*</span></label>
+                <input type="text" id="lm-name" class="form-input" placeholder="e.g. Innovation Center, North Gate" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="lm-cat">Category <span class="required">*</span></label>
+                <select id="lm-cat" class="form-select" required>
+                  <option value="Academic">Academic</option>
+                  <option value="Food">Food / Canteen</option>
+                  <option value="Recreation">Recreation / Sports</option>
+                  <option value="Gate">Campus Gate</option>
+                  <option value="Admin">Admin Building</option>
+                </select>
+              </div>
+              <div class="flex gap-4">
+                <div class="form-group flex-1">
+                  <label class="form-label" for="lm-lat">Latitude</label>
+                  <input type="number" step="0.000001" id="lm-lat" class="form-input" value="12.9716" required>
+                </div>
+                <div class="form-group flex-1">
+                  <label class="form-label" for="lm-lng">Longitude</label>
+                  <input type="number" step="0.000001" id="lm-lng" class="form-input" value="77.5946" required>
+                </div>
+              </div>
+            `,
+            confirmText: 'Add Landmark',
+            onConfirm: async () => {
+              const name = document.getElementById('lm-name').value.trim();
+              const category = document.getElementById('lm-cat').value;
+              const lat = parseFloat(document.getElementById('lm-lat').value);
+              const lng = parseFloat(document.getElementById('lm-lng').value);
+
+              if (!name) { toast.error('Landmark name is required.'); throw new Error(); }
+
+              const id = 'lm_' + Math.random().toString(36).substring(2, 7);
+              await store.setDoc('landmarks', id, {
+                id,
+                name,
+                category,
+                lat,
+                lng,
+                order: landmarks.length + 1
+              });
+              toast.success(`Added landmark "${name}"!`);
+              renderContent();
+            }
+          });
+        });
+      }
+
+      // Delete Landmark
+      tabArea.querySelectorAll('.delete-lm-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          if (confirm('Delete this landmark from meeting options?')) {
+            await store.deleteDoc('landmarks', id);
+            toast.success('Landmark deleted.');
+            renderContent();
+          }
+        });
+      });
+    }
+
+    // Export DB Handler
+    const exportBtn = container.querySelector('#export-db-btn');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', async () => {
+        const dump = {
+          exportedAt: new Date().toISOString(),
+          users: allUsers,
+          requests: allRequests,
+          events: allEvents,
+          reports: allReports,
+          landmarks: landmarks
+        };
+        const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sharebox_backup_${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('Database backup exported successfully!');
+      });
+    }
+
+    // Reset DB to Seeds Handler
+    const resetBtn = container.querySelector('#reset-db-btn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', async () => {
+        if (confirm('WARNING: This will wipe custom test data and restore baseline seed accounts (Admin, Organizer, Student) with password "password123". Continue?')) {
+          await store.resetDatabase();
+          toast.success('Database reset to clean seed state!');
+          renderContent();
+        }
+      });
+    }
+
+    // Main Tab button bindings
+    container.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeTab = btn.getAttribute('data-tab');
+        renderContent();
+      });
+    });
+  };
+
+  await renderContent();
+}
