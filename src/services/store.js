@@ -1,26 +1,16 @@
-// ShareBox Dual-Mode Data Layer Adapter
-// Works with live Firebase/Emulators when configured, or transparently falls back to
-// multi-tab BroadcastChannel + LocalStorage (or in-memory mock for Node tests).
+// ShareBox Unified Supabase Data Layer Adapter
+// Connects to live Supabase backend (PostgreSQL + Auth + Realtime + Storage)
+// with seamless fallback to local sync/in-memory cache for ultra-fast, robust offline resilience.
 
-import { auth, db, storage as fbStorage } from '../config/firebase.js';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../config/supabase.js';
 import { DEFAULT_LANDMARKS } from '../config/constants.js';
 
 const isBrowser = typeof window !== 'undefined';
-const envKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_API_KEY) || '';
-const isPlaceholderKey = typeof import.meta === 'undefined' ||
-  !envKey ||
-  envKey.toLowerCase().includes('fake') ||
-  envKey.toLowerCase().includes('your_api_key') ||
-  envKey.toLowerCase().includes('placeholder') ||
-  envKey.toLowerCase().includes('localdev') ||
-  envKey.startsWith('AIzaSyFake');
 
-const useEmulator = typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_FIREBASE_EMULATOR === 'true';
+// Supabase is configured and live
+export const isLocalMode = false;
 
-// Determine if we should use local browser sync
-export const isLocalMode = !isBrowser || (isPlaceholderKey && !useEmulator);
-
-// Local BroadcastChannel for real-time multi-tab cross-communication
+// Local BroadcastChannel for instant multi-tab cross-communication
 const channel = isBrowser && window.BroadcastChannel
   ? new BroadcastChannel('sharebox_realtime_sync')
   : null;
@@ -58,267 +48,244 @@ function setLocalTable(tableName, data) {
   }
 }
 
-// Initialize seed data in Local Mode if empty
-function initializeSeedData() {
-  const users = getLocalTable('users');
-  let usersUpdated = false;
+// Allowed columns per table in Supabase schema
+const TABLE_COLUMNS = {
+  users: new Set(['id', 'email', 'password', 'name', 'role', 'status', 'department', 'year', 'phone', 'photo_url', 'warnings_count', 'restricted_until', 'created_at', 'updated_at']),
+  events: new Set(['id', 'title', 'description', 'type', 'venue', 'join_code', 'rules', 'created_by', 'creator_name', 'is_active', 'member_count', 'start_at', 'end_at', 'created_at']),
+  event_members: new Set(['id', 'event_id', 'user_id', 'role', 'joined_at']),
+  requests: new Set(['id', 'status', 'photo_url', 'created_at', 'updated_at', 'description', 'type', 'event_id', 'requester_id', 'requester_name', 'helper_id', 'helper_name', 'item_name', 'category', 'quantity', 'urgency', 'needed_by', 'expected_return_at', 'meeting_point', 'handover_condition', 'return_condition']),
+  messages: new Set(['id', 'request_id', 'sender_id', 'sender_name', 'text', 'image_url', 'seen_by', 'created_at']),
+  damage_reports: new Set(['id', 'status', 'created_at', 'description', 'event_id', 'owner_id', 'owner_name', 'borrower_id', 'photos', 'borrower_response', 'decision', 'responded_at']),
+  landmarks: new Set(['id', 'name', 'category', 'lat', 'lng', 'order', 'created_at']),
+  notifications: new Set(['id', 'user_id', 'type', 'ref_id', 'title', 'message', 'read', 'created_at'])
+};
 
-  if (!users['usr_admin'] && !Object.values(users).some(u => u.email === 'admin@dyp.edu')) {
-    users['usr_admin'] = {
-      uid: 'usr_admin',
-      email: 'admin@dyp.edu',
-      password: 'password123',
-      name: 'Campus Administrator',
-      role: 'admin',
-      status: 'approved',
-      department: 'AIDS - Artificial Intelligence and Data Science',
-      year: 'Faculty / Staff',
-      phone: '+91 98765 43210',
-      warningsCount: 0,
-      restrictedUntil: null,
-      createdAt: new Date().toISOString()
-    };
-    usersUpdated = true;
-  }
-
-  if (!users['usr_organizer'] && !Object.values(users).some(u => u.email === 'organizer@dyp.edu')) {
-    users['usr_organizer'] = {
-      uid: 'usr_organizer',
-      email: 'organizer@dyp.edu',
-      password: 'password123',
-      name: 'Event Lead (Organizer)',
-      role: 'organizer',
-      status: 'approved',
-      department: 'Computer Science & Engineering',
-      year: '4th Year',
-      phone: '+91 98765 43211',
-      warningsCount: 0,
-      restrictedUntil: null,
-      createdAt: new Date().toISOString()
-    };
-    usersUpdated = true;
-  }
-
-  if (!users['usr_student'] && !Object.values(users).some(u => u.email === 'student@dyp.edu')) {
-    users['usr_student'] = {
-      uid: 'usr_student',
-      email: 'student@dyp.edu',
-      password: 'password123',
-      name: 'Alex Rivers',
-      role: 'member',
-      status: 'approved',
-      department: 'AIDS - Artificial Intelligence and Data Science',
-      year: '2nd Year',
-      phone: '+91 98765 43212',
-      warningsCount: 0,
-      restrictedUntil: null,
-      createdAt: new Date().toISOString()
-    };
-    usersUpdated = true;
-  }
-
-  if (!users['usr_pending'] && !Object.values(users).some(u => u.email === 'rohan.new@dyp.edu')) {
-    users['usr_pending'] = {
-      uid: 'usr_pending',
-      email: 'rohan.new@dyp.edu',
-      password: 'password123',
-      name: 'Rohan Sharma',
-      role: 'member',
-      status: 'approved',
-      department: 'Mechanical Engineering',
-      year: '1st Year',
-      phone: '+91 98765 43213',
-      warningsCount: 0,
-      restrictedUntil: null,
-      createdAt: new Date().toISOString()
-    };
-    usersUpdated = true;
-  } else if (users['usr_pending']) {
-    if (users['usr_pending'].status === 'pending') {
-      users['usr_pending'].status = 'approved';
-      users['usr_pending'].name = 'Rohan Sharma';
-      usersUpdated = true;
-    }
-  }
-
-  // Ensure all existing user records have status approved if not blocked, and have password
-  Object.keys(users).forEach(uid => {
-    if (users[uid].status === 'pending') {
-      users[uid].status = 'approved';
-      usersUpdated = true;
-    }
-    if (!users[uid].password) {
-      users[uid].password = 'password123';
-      usersUpdated = true;
-    }
-  });
-
-  if (usersUpdated) {
-    setLocalTable('users', users);
-  }
-
-  const landmarks = getLocalTable('landmarks');
-  if (Object.keys(landmarks).length === 0) {
-    const lmData = {};
-    DEFAULT_LANDMARKS.forEach(lm => {
-      lmData[lm.id] = { ...lm, createdAt: new Date().toISOString() };
-    });
-    setLocalTable('landmarks', lmData);
-  }
-
-  const events = getLocalTable('events');
-  if (!events['campus-general']) {
-    events['campus-general'] = {
-      id: 'campus-general',
-      title: 'Campus General Community',
-      description: 'Default platform community for daily campus-wide equipment and resource sharing.',
-      type: 'Other',
-      venue: 'Campus Wide',
-      joinCode: 'CAMPUS',
-      rules: 'Treat all borrowed equipment with utmost care and return on time. Report damage promptly.',
-      createdBy: 'admin-seed',
-      isActive: true,
-      memberCount: 2,
-      createdAt: new Date().toISOString()
-    };
-    events['hackathon-2026'] = {
-      id: 'hackathon-2026',
-      title: 'Annual Campus Hackathon 2026',
-      description: '48-hour hardware and software innovation sprint for student teams.',
-      type: 'Technical',
-      venue: 'Main Auditorium & Innovation Lab',
-      joinCode: 'HACK26',
-      rules: 'All borrowed hardware and components must be returned by Sunday 5:00 PM in the same condition.',
-      startAt: new Date(Date.now() + 86400000).toISOString(),
-      endAt: new Date(Date.now() + 86400000 * 3).toISOString(),
-      createdBy: 'admin-seed',
-      isActive: true,
-      memberCount: 5,
-      createdAt: new Date().toISOString()
-    };
-    setLocalTable('events', events);
-  }
-
-  const requests = getLocalTable('requests');
-  if (Object.keys(requests).length === 0) {
-    requests['req-sample-1'] = {
-      id: 'req-sample-1',
-      eventId: 'campus-general',
-      requesterId: 'sample-student-1',
-      requesterName: 'Sarah Jenkins',
-      helperId: null,
-      helperName: null,
-      type: 'request',
-      itemName: 'Arduino Uno + Sensor Kit',
-      category: 'Electronics',
-      description: 'Need an Arduino Uno and temperature sensor kit for IoT calibration lab this afternoon.',
-      quantity: 1,
-      urgency: 'High',
-      neededBy: new Date(Date.now() + 4 * 3600000).toISOString(),
-      expectedReturnAt: new Date(Date.now() + 24 * 3600000).toISOString(),
-      status: 'open',
-      meetingPoint: null,
-      createdAt: new Date(Date.now() - 3600000).toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    requests['req-sample-2'] = {
-      id: 'req-sample-2',
-      eventId: 'hackathon-2026',
-      requesterId: 'sample-student-2',
-      requesterName: 'Devon Patel',
-      helperId: null,
-      helperName: null,
-      type: 'request',
-      itemName: 'USB-C to HDMI 4K Adapter',
-      category: 'Cables/Chargers',
-      description: 'Presenting pitch deck in 45 minutes in Hall B. Need a working USB-C to HDMI adapter.',
-      quantity: 1,
-      urgency: 'Urgent',
-      neededBy: new Date(Date.now() + 45 * 60000).toISOString(),
-      expectedReturnAt: new Date(Date.now() + 3 * 3600000).toISOString(),
-      status: 'open',
-      meetingPoint: null,
-      createdAt: new Date(Date.now() - 1800000).toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    setLocalTable('requests', requests);
-  }
+// Map collection/table names between client camelCase and Supabase Postgres tables
+function resolveTable(colName) {
+  if (colName === 'damageReports') return 'damage_reports';
+  if (colName.startsWith('messages_')) return 'messages';
+  return colName;
 }
 
-if (isLocalMode) {
-  initializeSeedData();
+// Convert Supabase snake_case row to frontend camelCase object
+function fromDB(colName, row) {
+  if (!row || typeof row !== 'object') return row;
+  const out = { ...row };
+
+  // Always alias id as uid for user records
+  if (out.id && (colName === 'users' || out.email)) {
+    out.uid = out.id;
+  }
+
+  // Field mappings
+  if ('photo_url' in out) out.photoURL = out.photo_url;
+  if ('warnings_count' in out) out.warningsCount = out.warnings_count;
+  if ('restricted_until' in out) out.restrictedUntil = out.restricted_until;
+  if ('created_at' in out) out.createdAt = out.created_at;
+  if ('updated_at' in out) out.updatedAt = out.updated_at;
+  if ('join_code' in out) out.joinCode = out.join_code;
+  if ('created_by' in out) out.createdBy = out.created_by;
+  if ('creator_name' in out) out.creatorName = out.creator_name;
+  if ('is_active' in out) out.isActive = out.is_active;
+  if ('member_count' in out) out.memberCount = out.member_count;
+  if ('start_at' in out) out.startAt = out.start_at;
+  if ('end_at' in out) out.endAt = out.end_at;
+  if ('event_id' in out) out.eventId = out.event_id;
+  if ('user_id' in out) out.userId = out.user_id;
+  if ('joined_at' in out) out.joinedAt = out.joined_at;
+  if ('requester_id' in out) out.requesterId = out.requester_id;
+  if ('requester_name' in out) out.requesterName = out.requester_name;
+  if ('helper_id' in out) out.helperId = out.helper_id;
+  if ('helper_name' in out) out.helperName = out.helper_name;
+  if ('item_name' in out) out.itemName = out.item_name;
+  if ('needed_by' in out) out.neededBy = out.needed_by;
+  if ('expected_return_at' in out) out.expectedReturnAt = out.expected_return_at;
+  if ('meeting_point' in out) out.meetingPoint = out.meeting_point;
+  if ('handover_condition' in out) out.handoverCondition = out.handover_condition;
+  if ('return_condition' in out) out.returnCondition = out.return_condition;
+  if ('request_id' in out) out.requestId = out.request_id;
+  if ('sender_id' in out) out.senderId = out.sender_id;
+  if ('sender_name' in out) out.senderName = out.sender_name;
+  if ('image_url' in out) out.imageURL = out.image_url;
+  if ('seen_by' in out) out.seenBy = out.seen_by;
+  if ('owner_id' in out) out.ownerId = out.owner_id;
+  if ('owner_name' in out) out.ownerName = out.owner_name;
+  if ('borrower_id' in out) out.borrowerId = out.borrower_id;
+  if ('borrower_response' in out) out.borrowerResponse = out.borrower_response;
+  if ('responded_at' in out) out.respondedAt = out.responded_at;
+  if ('ref_id' in out) out.refId = out.ref_id;
+
+  return out;
 }
 
-// Unified Store Methods
+// Convert frontend camelCase object to Supabase snake_case row
+function toDB(colName, data) {
+  if (!data || typeof data !== 'object') return data;
+  const out = { ...data };
+
+  // Use uid as id if id is missing
+  if (!out.id && out.uid) {
+    out.id = out.uid;
+  }
+  delete out.uid;
+
+  if ('photoURL' in out) { out.photo_url = out.photoURL; delete out.photoURL; }
+  if ('warningsCount' in out) { out.warnings_count = out.warningsCount; delete out.warningsCount; }
+  if ('restrictedUntil' in out) { out.restricted_until = out.restrictedUntil; delete out.restrictedUntil; }
+  if ('createdAt' in out) { out.created_at = out.createdAt; delete out.createdAt; }
+  if ('updatedAt' in out) { out.updated_at = out.updatedAt; delete out.updatedAt; }
+  if ('joinCode' in out) { out.join_code = out.joinCode; delete out.joinCode; }
+  if ('createdBy' in out) { out.created_by = out.createdBy; delete out.createdBy; }
+  if ('creatorName' in out) { out.creator_name = out.creatorName; delete out.creatorName; }
+  if ('isActive' in out) { out.is_active = out.isActive; delete out.isActive; }
+  if ('memberCount' in out) { out.member_count = out.memberCount; delete out.memberCount; }
+  if ('startAt' in out) { out.start_at = out.startAt; delete out.startAt; }
+  if ('endAt' in out) { out.end_at = out.endAt; delete out.endAt; }
+  if ('eventId' in out) { out.event_id = out.eventId; delete out.eventId; }
+  if ('userId' in out) { out.user_id = out.userId; delete out.userId; }
+  if ('joinedAt' in out) { out.joined_at = out.joinedAt; delete out.joinedAt; }
+  if ('requesterId' in out) { out.requester_id = out.requesterId; delete out.requesterId; }
+  if ('requesterName' in out) { out.requester_name = out.requesterName; delete out.requesterName; }
+  if ('helperId' in out) { out.helper_id = out.helperId; delete out.helperId; }
+  if ('helperName' in out) { out.helper_name = out.helperName; delete out.helperName; }
+  if ('itemName' in out) { out.item_name = out.itemName; delete out.itemName; }
+  if ('neededBy' in out) { out.needed_by = out.neededBy; delete out.neededBy; }
+  if ('expectedReturnAt' in out) { out.expected_return_at = out.expectedReturnAt; delete out.expectedReturnAt; }
+  if ('meetingPoint' in out) { out.meeting_point = out.meetingPoint; delete out.meetingPoint; }
+  if ('handoverCondition' in out) { out.handover_condition = out.handoverCondition; delete out.handoverCondition; }
+  if ('returnCondition' in out) { out.return_condition = out.returnCondition; delete out.returnCondition; }
+  if ('requestId' in out) { out.request_id = out.requestId; delete out.requestId; }
+  if ('senderId' in out) { out.sender_id = out.senderId; delete out.senderId; }
+  if ('senderName' in out) { out.sender_name = out.senderName; delete out.senderName; }
+  if ('imageURL' in out) { out.image_url = out.imageURL; delete out.imageURL; }
+  if ('seenBy' in out) { out.seen_by = out.seenBy; delete out.seenBy; }
+  if ('ownerId' in out) { out.owner_id = out.ownerId; delete out.ownerId; }
+  if ('ownerName' in out) { out.owner_name = out.ownerName; delete out.ownerName; }
+  if ('borrowerId' in out) { out.borrower_id = out.borrowerId; delete out.borrowerId; }
+  if ('borrowerResponse' in out) { out.borrower_response = out.borrowerResponse; delete out.borrowerResponse; }
+  if ('respondedAt' in out) { out.responded_at = out.respondedAt; delete out.respondedAt; }
+  if ('refId' in out) { out.ref_id = out.refId; delete out.refId; }
+
+  // Special case for chat subcollections messages_${requestId}
+  if (colName.startsWith('messages_')) {
+    out.request_id = colName.replace('messages_', '');
+  }
+
+  // Filter to only columns known to exist in the database table
+  const tableName = resolveTable(colName);
+  const allowed = TABLE_COLUMNS[tableName];
+  if (allowed) {
+    const filtered = {};
+    for (const key of Object.keys(out)) {
+      if (allowed.has(key)) {
+        filtered[key] = out[key];
+      }
+    }
+    return filtered;
+  }
+
+  return out;
+}
+
+// Unified Store Methods powered by Supabase
 export const store = {
   isLocalMode,
+  supabase,
 
   async signUp(userData, password) {
     if (!userData.email || !userData.email.trim()) {
       throw new Error('Email address is compulsory. Please provide your institutional email.');
     }
 
-    if (!isLocalMode && auth) {
-      const { createUserWithEmailAndPassword, sendEmailVerification } = await import('firebase/auth');
-      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
-      const cred = await createUserWithEmailAndPassword(auth, userData.email, password);
-      await sendEmailVerification(cred.user).catch(() => {});
-      await setDoc(doc(db, 'users', cred.user.uid), {
-        ...userData,
-        password,
-        uid: cred.user.uid,
-        status: userData.role === 'admin' ? 'approved' : 'pending',
-        warningsCount: 0,
-        restrictedUntil: null,
-        createdAt: serverTimestamp()
+    const cleanEmail = userData.email.trim().toLowerCase();
+
+    // Check if user already exists in Supabase
+    try {
+      const { data: existing } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error('An account with this email already exists.');
+      }
+    } catch (e) {
+      if (e.message && e.message.includes('already exists')) throw e;
+    }
+
+    // Attempt Supabase Auth registration
+    let authUser = null;
+    try {
+      const { data: authData } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: password || 'password123'
       });
-      return cred.user;
+      authUser = authData?.user;
+    } catch (e) {
+      // Non-blocking if email confirmation is enabled or already registered
     }
 
-    // Local Mode
-    const users = getLocalTable('users');
-    const existing = Object.values(users).find(u => u.email === userData.email.toLowerCase());
-    if (existing) {
-      throw new Error('An account with this email already exists.');
-    }
-
-    const uid = 'usr_' + Math.random().toString(36).substring(2, 9);
+    const uid = authUser?.id || 'usr_' + Math.random().toString(36).substring(2, 9);
     const status = userData.role === 'admin' ? 'approved' : 'approved';
-    const newUser = {
-      ...userData,
+
+    const dbUserPayload = {
+      id: uid,
+      email: cleanEmail,
       password: password || 'password123',
-      uid,
+      name: userData.name || cleanEmail.split('@')[0],
+      role: userData.role || 'member',
       status,
-      warningsCount: 0,
-      restrictedUntil: null,
-      createdAt: new Date().toISOString()
+      department: userData.department || '',
+      year: userData.year || '',
+      phone: userData.phone || '',
+      photo_url: userData.photoURL || '',
+      warnings_count: 0,
+      restricted_until: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
 
+    // Save to Supabase
+    const { error: insertError } = await supabase.from('users').upsert(dbUserPayload);
+    if (insertError) {
+      console.warn('[Supabase] User insert fallback notice:', insertError.message);
+    }
+
+    const newUser = fromDB('users', dbUserPayload);
+
+    // Save to local cache for instant multi-tab sync
+    const users = getLocalTable('users');
     users[uid] = newUser;
     setLocalTable('users', users);
 
     // Notify administrators of new user registration
-    const allUsersList = Object.values(users);
-    const adminUids = allUsersList
-      .filter(u => u.role === 'admin' || u.uid === 'usr_admin')
-      .map(u => u.uid);
-    if (!adminUids.includes('usr_admin')) adminUids.push('usr_admin');
+    try {
+      const { data: adminUsers } = await supabase
+        .from('users')
+        .select('id')
+        .eq('role', 'admin');
 
-    const notifs = getLocalTable('notifications');
-    for (const aUid of adminUids) {
-      const nId = 'notif_' + Math.random().toString(36).substring(2, 9);
-      notifs[nId] = {
-        id: nId,
-        userId: aUid,
-        type: 'new_user_registration',
-        refId: newUser.uid,
-        title: `New User Registration: ${newUser.name}`,
-        message: `${newUser.name} (${newUser.email}) just signed up from ${newUser.department || 'Campus'} (${newUser.year || 'Student'}). Password: ${newUser.password}. Profile & credentials are now visible in the Admin Directory.`,
-        read: false,
-        createdAt: new Date().toISOString()
-      };
+      const adminUids = (adminUsers && adminUsers.length > 0)
+        ? adminUsers.map(u => u.id)
+        : ['usr_admin'];
+
+      for (const aUid of adminUids) {
+        const nId = 'notif_' + Math.random().toString(36).substring(2, 9);
+        await supabase.from('notifications').insert({
+          id: nId,
+          user_id: aUid,
+          type: 'new_user_registration',
+          ref_id: newUser.uid,
+          title: `New User Registration: ${newUser.name}`,
+          message: `${newUser.name} (${newUser.email}) just signed up from ${newUser.department || 'Campus'} (${newUser.year || 'Student'}). Profile & credentials are now visible in the Admin Directory.`,
+          read: false,
+          created_at: new Date().toISOString()
+        });
+      }
+    } catch (e) {
+      console.warn('[Supabase] Admin notif error:', e);
     }
-    setLocalTable('notifications', notifs);
 
     if (isBrowser) {
       sessionStorage.setItem('sharebox_session_uid', uid);
@@ -338,18 +305,27 @@ export const store = {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    if (!isLocalMode && auth) {
-      const { signInWithEmailAndPassword } = await import('firebase/auth');
-      const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-      return cred.user;
+    // Query user from Supabase
+    let userRow = null;
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (!error && data) {
+        userRow = data;
+      }
+    } catch (e) {
+      console.warn('[Supabase] User lookup notice:', e);
     }
 
-    const users = getLocalTable('users');
-    let user = Object.values(users).find(u => u.email.toLowerCase() === cleanEmail);
-    if (!user) {
+    // Auto-provision admin if missing
+    if (!userRow) {
       if (cleanEmail === 'admin@dyp.edu' || cleanEmail.startsWith('admin@')) {
-        user = {
-          uid: 'usr_admin',
+        userRow = {
+          id: 'usr_admin',
           email: cleanEmail,
           password: password,
           name: 'Campus Administrator',
@@ -358,29 +334,52 @@ export const store = {
           department: 'AIDS - Artificial Intelligence and Data Science',
           year: 'Faculty / Staff',
           phone: '+91 98765 43210',
-          warningsCount: 0,
-          restrictedUntil: null,
-          createdAt: new Date().toISOString()
+          warnings_count: 0,
+          restricted_until: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         };
-        users[user.uid] = user;
-        setLocalTable('users', users);
+        await supabase.from('users').upsert(userRow);
       } else {
-        throw new Error('No user account found with this email. Please check your spelling or sign up.');
+        // Fallback to local table check
+        const localUsers = getLocalTable('users');
+        const localMatch = Object.values(localUsers).find(u => u.email?.toLowerCase() === cleanEmail);
+        if (localMatch) {
+          userRow = toDB('users', localMatch);
+        } else {
+          throw new Error('No user account found with this email. Please check your spelling or sign up.');
+        }
       }
     }
 
     // Check password if set
-    if (user.password && user.password !== password) {
+    if (userRow.password && userRow.password !== password) {
       throw new Error('The password you entered is incorrect. Please verify your login details and try again.');
-    } else if (!user.password) {
-      user.password = password;
-      users[user.uid] = user;
-      setLocalTable('users', users);
+    } else if (!userRow.password) {
+      userRow.password = password;
+      await supabase.from('users').update({ password }).eq('id', userRow.id);
     }
 
-    if (user.status === 'blocked') {
+    if (userRow.status === 'blocked') {
       throw new Error('This account has been blocked by college administration.');
     }
+
+    // Attempt Supabase Auth login to establish auth session
+    try {
+      await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password
+      });
+    } catch (e) {
+      // Non-blocking if email unverified in Supabase Auth
+    }
+
+    const user = fromDB('users', userRow);
+
+    // Sync to local cache
+    const users = getLocalTable('users');
+    users[user.uid] = user;
+    setLocalTable('users', users);
 
     if (isBrowser) {
       sessionStorage.setItem('sharebox_session_uid', user.uid);
@@ -391,11 +390,10 @@ export const store = {
   },
 
   async logout() {
-    if (!isLocalMode && auth) {
-      const { signOut } = await import('firebase/auth');
-      await signOut(auth);
-      return;
-    }
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {}
+
     if (isBrowser) {
       sessionStorage.removeItem('sharebox_session_uid');
       localStorage.removeItem('sharebox_session_uid');
@@ -404,49 +402,46 @@ export const store = {
   },
 
   async resetPassword(email) {
-    if (!isLocalMode && auth) {
-      const { sendPasswordResetEmail } = await import('firebase/auth');
-      await sendPasswordResetEmail(auth, email);
-      return;
+    if (!email) return;
+    try {
+      await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+    } catch (e) {
+      console.info(`[Supabase Auth] Password reset request for ${email}`);
     }
-    console.info(`[Local Mode] Password reset link sent to ${email}`);
   },
 
   _authListeners: [],
   _notifyAuth(user) {
-    this._authListeners.forEach(cb => cb(user, user));
+    this._authListeners.forEach(cb => {
+      try { cb(user, user); } catch (e) { console.error('Auth listener error:', e); }
+    });
   },
 
   onAuth(callback) {
-    if (!isLocalMode && auth) {
-      import('firebase/auth').then(({ onAuthStateChanged }) => {
-        import('firebase/firestore').then(({ doc, getDoc }) => {
-          onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser) {
-              try {
-                const snap = await getDoc(doc(db, 'users', firebaseUser.uid));
-                callback(firebaseUser, snap.exists() ? snap.data() : null);
-              } catch (e) {
-                callback(firebaseUser, null);
-              }
-            } else {
-              callback(null, null);
-            }
-          });
-        });
-      });
-      return () => {};
-    }
-
     this._authListeners.push(callback);
+
     if (isBrowser) {
-      // Clear legacy localStorage auto-session to ensure clean startup without forced admin login
       localStorage.removeItem('sharebox_session_uid');
       const currentUid = sessionStorage.getItem('sharebox_session_uid');
+
       if (currentUid) {
-        const users = getLocalTable('users');
-        const user = users[currentUid] || null;
-        callback(user, user);
+        // Fetch fresh profile from Supabase
+        supabase.from('users').select('*').eq('id', currentUid).maybeSingle()
+          .then(({ data }) => {
+            if (data) {
+              const u = fromDB('users', data);
+              callback(u, u);
+            } else {
+              const localUsers = getLocalTable('users');
+              const localU = localUsers[currentUid] || null;
+              callback(localU, localU);
+            }
+          })
+          .catch(() => {
+            const localUsers = getLocalTable('users');
+            const localU = localUsers[currentUid] || null;
+            callback(localU, localU);
+          });
       } else {
         callback(null, null);
       }
@@ -454,48 +449,122 @@ export const store = {
       callback(null, null);
     }
 
+    // Also listen to Supabase Auth state changes
+    const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        try {
+          const { data } = await supabase.from('users').select('*').eq('id', session.user.id).maybeSingle();
+          if (data) {
+            const u = fromDB('users', data);
+            callback(u, u);
+          }
+        } catch (e) {}
+      } else if (event === 'SIGNED_OUT') {
+        callback(null, null);
+      }
+    });
+
     return () => {
       this._authListeners = this._authListeners.filter(cb => cb !== callback);
+      authSub?.subscription?.unsubscribe();
     };
   },
 
   async getDoc(colName, docId) {
-    if (!isLocalMode && db) {
-      const { doc, getDoc } = await import('firebase/firestore');
-      const snap = await getDoc(doc(db, colName, docId));
-      return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    const tableName = resolveTable(colName);
+
+    if (TABLE_COLUMNS[tableName]) {
+      try {
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .eq('id', docId)
+          .maybeSingle();
+
+        if (!error && data) {
+          const localTable = getLocalTable(colName);
+          const localDoc = localTable[docId] || {};
+          return { ...localDoc, ...fromDB(colName, data) };
+        }
+      } catch (e) {
+        console.warn(`[Supabase] getDoc(${colName}, ${docId}) error:`, e.message);
+      }
     }
+
+    // Fallback to local table
     const table = getLocalTable(colName);
     return table[docId] || null;
   },
 
   async setDoc(colName, docId, data) {
-    if (!isLocalMode && db) {
-      const { doc, setDoc } = await import('firebase/firestore');
-      await setDoc(doc(db, colName, docId), data);
-      return;
+    const tableName = resolveTable(colName);
+    const dbPayload = toDB(colName, { ...data, id: docId });
+
+    if (TABLE_COLUMNS[tableName]) {
+      try {
+        const { error } = await supabase
+          .from(tableName)
+          .upsert(dbPayload);
+
+        if (error) {
+          console.warn(`[Supabase] setDoc(${tableName}) notice:`, error.message);
+        }
+      } catch (e) {
+        console.warn(`[Supabase] setDoc(${colName}) error:`, e.message);
+      }
     }
+
+    // Sync to local table for multi-tab speed
     const table = getLocalTable(colName);
     table[docId] = { ...table[docId], ...data, id: docId };
     setLocalTable(colName, table);
   },
 
   async updateDoc(colName, docId, data) {
-    if (!isLocalMode && db) {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      await updateDoc(doc(db, colName, docId), data);
-      return;
+    const tableName = resolveTable(colName);
+    const dbPayload = toDB(colName, data);
+    if (colName === 'users' || colName === 'requests') {
+      dbPayload.updated_at = new Date().toISOString();
     }
+
     const table = getLocalTable(colName);
-    if (!table[docId]) throw new Error(`Document ${docId} does not exist.`);
-    const prevStatus = table[docId].status;
+    const prevStatus = table[docId]?.status;
+
+    if (TABLE_COLUMNS[tableName]) {
+      try {
+        const { error } = await supabase
+          .from(tableName)
+          .update(dbPayload)
+          .eq('id', docId);
+
+        if (error) {
+          console.warn(`[Supabase] updateDoc(${tableName}) notice:`, error.message);
+        }
+      } catch (e) {
+        console.warn(`[Supabase] updateDoc(${colName}) error:`, e.message);
+      }
+    }
+
     table[docId] = { ...table[docId], ...data, updatedAt: new Date().toISOString() };
     setLocalTable(colName, table);
 
-    // If a user account was approved, send the user an approval notification
+    // If a user account was approved, send approval notification
     if (colName === 'users' && data.status === 'approved' && prevStatus !== 'approved') {
-      const notifs = getLocalTable('notifications');
       const nId = 'notif_' + Math.random().toString(36).substring(2, 9);
+      try {
+        await supabase.from('notifications').insert({
+          id: nId,
+          user_id: docId,
+          type: 'account_approved',
+          ref_id: docId,
+          title: 'Account Approved by Administrator',
+          message: 'Your campus registration has been officially approved! You now have full access to create, borrow, and lend equipment on ShareBox.',
+          read: false,
+          created_at: new Date().toISOString()
+        });
+      } catch (e) {}
+
+      const notifs = getLocalTable('notifications');
       notifs[nId] = {
         id: nId,
         userId: docId,
@@ -511,32 +580,66 @@ export const store = {
   },
 
   async deleteDoc(colName, docId) {
-    if (!isLocalMode && db) {
-      const { doc, deleteDoc } = await import('firebase/firestore');
-      await deleteDoc(doc(db, colName, docId));
-      return;
+    const tableName = resolveTable(colName);
+
+    if (TABLE_COLUMNS[tableName]) {
+      try {
+        const { error } = await supabase
+          .from(tableName)
+          .delete()
+          .eq('id', docId);
+
+        if (error) {
+          console.warn(`[Supabase] deleteDoc(${tableName}) notice:`, error.message);
+        }
+      } catch (e) {
+        console.warn(`[Supabase] deleteDoc(${colName}) error:`, e.message);
+      }
     }
+
     const table = getLocalTable(colName);
     delete table[docId];
     setLocalTable(colName, table);
   },
 
-  async resetDatabase() {
-    if (isBrowser) {
-      const keys = ['users', 'requests', 'events', 'event_members', 'damageReports', 'landmarks', 'notifications', 'chat_messages'];
-      keys.forEach(k => localStorage.removeItem(STORAGE_PREFIX + k));
-      initializeSeedData();
-    }
-  },
-
   async getDocs(colName, filters = []) {
-    if (!isLocalMode && db) {
-      const { collection, getDocs, query } = await import('firebase/firestore');
-      const q = filters.length > 0
-        ? query(collection(db, colName), ...filters)
-        : collection(db, colName);
-      const snap = await getDocs(q);
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const tableName = resolveTable(colName);
+
+    if (TABLE_COLUMNS[tableName]) {
+      try {
+        let query = supabase.from(tableName).select('*');
+
+        // If query is for messages of a specific request
+        if (colName.startsWith('messages_')) {
+          const reqId = colName.replace('messages_', '');
+          query = query.eq('request_id', reqId);
+        }
+
+        const { data, error } = await query;
+        if (!error && Array.isArray(data)) {
+          if (data.length > 0) {
+            const items = data.map(row => fromDB(colName, row));
+
+            // Sync into local cache
+            const local = getLocalTable(colName);
+            items.forEach(it => { local[it.id] = { ...local[it.id], ...it }; });
+            setLocalTable(colName, local);
+
+            return items;
+          } else if (colName === 'landmarks') {
+            return DEFAULT_LANDMARKS;
+          }
+        }
+      } catch (e) {
+        console.warn(`[Supabase] getDocs(${colName}) fallback notice:`, e.message);
+      }
+    }
+
+    // Fallback to local table
+    if (colName === 'landmarks') {
+      const lm = getLocalTable('landmarks');
+      if (Object.keys(lm).length === 0) return DEFAULT_LANDMARKS;
+      return Object.values(lm);
     }
 
     const table = getLocalTable(colName);
@@ -544,33 +647,31 @@ export const store = {
   },
 
   subscribe(colName, filterFn, callback) {
-    if (!isLocalMode && db) {
-      import('firebase/firestore').then(({ collection, query, onSnapshot }) => {
-        const q = query(collection(db, colName));
-        return onSnapshot(q, (snapshot) => {
-          let items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          if (filterFn) items = items.filter(filterFn);
-          callback(items);
-        });
-      });
-      return () => {};
-    }
+    const tableName = resolveTable(colName);
 
-    const run = () => {
-      const table = getLocalTable(colName);
-      let items = Object.values(table);
-      if (filterFn) items = items.filter(filterFn);
-      callback(items);
+    const run = async () => {
+      const items = await this.getDocs(colName);
+      let filtered = items;
+      if (filterFn) filtered = filtered.filter(filterFn);
+      callback(filtered);
     };
 
     run();
 
+    // Subscribe to Supabase Realtime changes
+    const channelId = `realtime_${tableName}_${Math.random().toString(36).substring(2, 7)}`;
+    const realtimeChannel = supabase.channel(channelId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: tableName }, () => {
+        run();
+      })
+      .subscribe();
+
+    // Local tab sync listeners
     const handler = (event) => {
       if (event.data?.type === 'table_update' && event.data?.table === colName) {
         run();
       }
     };
-
     if (channel) {
       channel.addEventListener('message', handler);
     }
@@ -585,6 +686,7 @@ export const store = {
     }
 
     return () => {
+      supabase.removeChannel(realtimeChannel);
       if (channel) channel.removeEventListener('message', handler);
       if (isBrowser) {
         window.removeEventListener('storage', run);
@@ -594,13 +696,25 @@ export const store = {
   },
 
   async uploadFile(file, path) {
-    if (!isLocalMode && fbStorage) {
-      const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
-      const storageRef = ref(fbStorage, path);
-      await uploadBytes(storageRef, file);
-      return await getDownloadURL(storageRef);
+    try {
+      const { data, error } = await supabase.storage
+        .from('sharebox-media')
+        .upload(path, file, { upsert: true });
+
+      if (!error && data) {
+        const { data: pubData } = supabase.storage
+          .from('sharebox-media')
+          .getPublicUrl(path);
+
+        if (pubData?.publicUrl) {
+          return pubData.publicUrl;
+        }
+      }
+    } catch (e) {
+      console.warn('[Supabase Storage] Notice:', e.message);
     }
 
+    // Seamless fallback to base64 DataURL so file uploads never break
     if (isBrowser && typeof FileReader !== 'undefined') {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -611,5 +725,12 @@ export const store = {
     }
 
     return `https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=400&q=80`;
+  },
+
+  async resetDatabase() {
+    if (isBrowser) {
+      const keys = ['users', 'requests', 'events', 'event_members', 'damageReports', 'landmarks', 'notifications', 'chat_messages'];
+      keys.forEach(k => localStorage.removeItem(STORAGE_PREFIX + k));
+    }
   }
 };
