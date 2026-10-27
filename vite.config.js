@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/ShareBox/',
+  base: './',
   root: '.',
   server: {
     port: 3000,
