@@ -306,3 +306,7 @@ $RECYCLE.BIN/
 *.dll
 *.apk
 *.ipa
+
+# Local credential notes
+kishan_req.txt
+
