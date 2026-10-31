@@ -25,7 +25,6 @@ export async function renderAdminDashboardPage(container, { user }) {
       allReports = store.getLocalDocs('damageReports');
       landmarks = locationService.getCampusLandmarksSync();
     } else {
-      // Parallel fast fetch from Supabase
       [allUsers, allRequests, allEvents, allReports, landmarks] = await Promise.all([
         store.getDocs('users'),
         store.getDocs('requests'),
@@ -41,6 +40,7 @@ export async function renderAdminDashboardPage(container, { user }) {
     const completionRate = totalReqs > 0 ? Math.round((completedReqs / totalReqs) * 100) : 100;
     const pendingUsers = allUsers.filter(u => u.status === 'pending');
     const approvedUsers = allUsers.filter(u => u.status === 'approved' || (!u.status && u.role === 'admin'));
+    const rejectedUsers = allUsers.filter(u => u.status === 'rejected');
     const staffUsers = allUsers.filter(u => ['admin', 'organizer'].includes(u.role)).length;
     const restrictedUsers = allUsers.filter(u => u.status === 'blocked' || (u.restrictedUntil && new Date(u.restrictedUntil) > new Date())).length;
     const pendingDisputes = allReports.filter(r => r.status !== 'resolved').length;
@@ -50,44 +50,29 @@ export async function renderAdminDashboardPage(container, { user }) {
 
     container.innerHTML = `
       <div style="width: 100%; max-width: 100%; padding: var(--space-6) var(--space-6); padding-bottom: var(--space-12); box-sizing: border-box;">
-        <!-- Liquid-Glass Title Header Banner -->
-        <div class="glass-header-box flex justify-between items-center flex-wrap gap-4" style="margin-bottom: var(--space-6);">
+        <!-- Title Header -->
+        <div class="flex justify-between items-center" style="margin-bottom: var(--space-6);">
           <div>
-            <div class="flex items-center gap-2">
-              <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(37, 99, 235, 0.12); color: var(--color-primary); display: flex; align-items: center; justify-content: center;">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="14" width="7" height="7"></rect>
-                  <rect x="3" y="14" width="7" height="7"></rect>
-                </svg>
-              </div>
-              <h1 class="text-xl font-bold" style="margin: 0; color: #0f172a;">Campus Administration Console</h1>
-            </div>
-            <p class="text-xs text-muted" style="margin-top: 4px; margin-bottom: 0;">Autonomous coordination for equipment directory, member approvals, campus events, and disputes.</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="badge" style="background: rgba(37, 99, 235, 0.1); color: var(--color-primary); border: 1px solid rgba(37, 99, 235, 0.25); font-weight: 700; padding: 6px 12px; border-radius: 9999px;">
-              Admin Session Active
-            </span>
+            <h1 class="text-xl font-bold">Admin Dashboard</h1>
+            <p class="text-sm text-muted">Manage campus users, requests, events, and dispute operations.</p>
           </div>
         </div>
 
-        <!-- Liquid-Glass Navigation Dock -->
-        <div class="liquid-glass-dock flex gap-2 flex-wrap items-center">
-          <button class="tab-btn btn liquid-glass-tab ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}" data-tab="users" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-lg); ${activeTab === 'users' ? 'background: #2563eb; color: #ffffff; border-color: #2563eb; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);' : 'background: rgba(255, 255, 255, 0.6); color: #1e40af; border-color: rgba(191, 219, 254, 0.7);'}">
-            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'users' ? '#ffffff' : '#2563eb'}; margin-right: 6px;"></span>Users (${approvedUsers.length})${pendingUsers.length > 0 ? ` <span class="badge" style="background: #f59e0b; color: #ffffff; font-size: 11px; padding: 2px 7px; border-radius: 10px; margin-left: 6px;">${pendingUsers.length} pending</span>` : ''}
+        <!-- Navigation Tabs with Distinct Section Colors -->
+        <div class="flex gap-3 flex-wrap items-center" style="border-bottom: 2px solid var(--border-subtle); padding-bottom: var(--space-4); margin-bottom: var(--space-6);">
+          <button class="tab-btn btn ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}" data-tab="users" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'users' ? 'background: #2563eb; color: #ffffff; border-color: #2563eb; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);' : 'background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;'}">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'users' ? '#ffffff' : '#2563eb'}; margin-right: 6px;"></span>Users (${approvedUsers.length})${pendingUsers.length > 0 ? ` <span class="badge" style="background: #f59e0b; color: #ffffff; font-size: 11px; padding: 2px 6px; border-radius: 10px; margin-left: 6px;">${pendingUsers.length} pending</span>` : ''}
           </button>
-          <button class="tab-btn btn liquid-glass-tab ${activeTab === 'requests' ? 'btn-primary' : 'btn-secondary'}" data-tab="requests" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-lg); ${activeTab === 'requests' ? 'background: #059669; color: #ffffff; border-color: #059669; box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);' : 'background: rgba(255, 255, 255, 0.6); color: #047857; border-color: rgba(167, 243, 208, 0.7);'}">
+          <button class="tab-btn btn ${activeTab === 'requests' ? 'btn-primary' : 'btn-secondary'}" data-tab="requests" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'requests' ? 'background: #059669; color: #ffffff; border-color: #059669; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);' : 'background: #ecfdf5; color: #047857; border-color: #a7f3d0;'}">
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'requests' ? '#ffffff' : '#059669'}; margin-right: 6px;"></span>Requests (${allRequests.length})
           </button>
-          <button class="tab-btn btn liquid-glass-tab ${activeTab === 'events' ? 'btn-primary' : 'btn-secondary'}" data-tab="events" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-lg); ${activeTab === 'events' ? 'background: #7c3aed; color: #ffffff; border-color: #7c3aed; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);' : 'background: rgba(255, 255, 255, 0.6); color: #6d28d9; border-color: rgba(221, 214, 254, 0.7);'}">
+          <button class="tab-btn btn ${activeTab === 'events' ? 'btn-primary' : 'btn-secondary'}" data-tab="events" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'events' ? 'background: #7c3aed; color: #ffffff; border-color: #7c3aed; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);' : 'background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe;'}">
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'events' ? '#ffffff' : '#7c3aed'}; margin-right: 6px;"></span>Events (${allEvents.length})
           </button>
-          <button class="tab-btn btn liquid-glass-tab ${activeTab === 'reports' ? 'btn-primary' : 'btn-secondary'}" data-tab="reports" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-lg); ${activeTab === 'reports' ? 'background: #dc2626; color: #ffffff; border-color: #dc2626; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);' : 'background: rgba(255, 255, 255, 0.6); color: #b91c1c; border-color: rgba(254, 202, 202, 0.7);'}">
+          <button class="tab-btn btn ${activeTab === 'reports' ? 'btn-primary' : 'btn-secondary'}" data-tab="reports" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'reports' ? 'background: #dc2626; color: #ffffff; border-color: #dc2626; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);' : 'background: #fef2f2; color: #b91c1c; border-color: #fecaca;'}">
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'reports' ? '#ffffff' : '#dc2626'}; margin-right: 6px;"></span>Disputes (${allReports.length})
           </button>
-          <button class="tab-btn btn liquid-glass-tab ${activeTab === 'landmarks' ? 'btn-primary' : 'btn-secondary'}" data-tab="landmarks" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-lg); ${activeTab === 'landmarks' ? 'background: #d97706; color: #ffffff; border-color: #d97706; box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);' : 'background: rgba(255, 255, 255, 0.6); color: #b45309; border-color: rgba(253, 230, 138, 0.7);'}">
+          <button class="tab-btn btn ${activeTab === 'landmarks' ? 'btn-primary' : 'btn-secondary'}" data-tab="landmarks" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'landmarks' ? 'background: #d97706; color: #ffffff; border-color: #d97706; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);' : 'background: #fffbeb; color: #b45309; border-color: #fde68a;'}">
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'landmarks' ? '#ffffff' : '#d97706'}; margin-right: 6px;"></span>Landmarks (${landmarks.length})
           </button>
         </div>
@@ -95,13 +80,13 @@ export async function renderAdminDashboardPage(container, { user }) {
         <!-- Main Dynamic Tab Panel Container -->
         <div id="admin-tab-content"></div>
 
-        <!-- Liquid-Glass Database Utilities Footer -->
-        <div class="liquid-glass-dock" style="margin-top: var(--space-8); padding: var(--space-4) var(--space-6);">
+        <!-- Database Utilities Footer -->
+        <div style="margin-top: var(--space-8); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
           <div class="flex justify-between items-center flex-wrap gap-3">
-            <span class="text-xs text-muted font-medium">Platform Database Maintenance & Archival</span>
+            <span class="text-xs text-muted">System Database Actions</span>
             <div class="flex gap-2">
-              <button id="export-db-btn" class="btn btn-secondary btn-sm glass-btn">Export Database</button>
-              <button id="reset-db-btn" class="btn btn-danger btn-sm" style="background: #dc2626; color: white;">Reset to Seed State</button>
+              <button id="export-db-btn" class="btn btn-secondary btn-sm">Export Database</button>
+              <button id="reset-db-btn" class="btn btn-danger btn-sm">Reset to Seed State</button>
             </div>
           </div>
         </div>
@@ -116,91 +101,89 @@ export async function renderAdminDashboardPage(container, { user }) {
     if (activeTab === 'users') {
       tabArea.innerHTML = `
         ${pendingUsers.length > 0 ? `
-          <div class="liquid-glass-alert flex justify-between items-center flex-wrap gap-3" style="padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5);">
+          <div style="background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: var(--radius-md); padding: var(--space-3) var(--space-5); margin-bottom: var(--space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <div>
-              <span style="font-weight: 800; color: #92400e;">⚠️ ${pendingUsers.length} Membership Request${pendingUsers.length > 1 ? 's' : ''} Awaiting Review:</span>
-              <span class="text-xs" style="color: #b45309; margin-left: 6px;">New campus applicants must be approved before access is granted.</span>
+              <span style="font-weight: 700; color: #92400e;">⚠️ ${pendingUsers.length} Membership Request${pendingUsers.length > 1 ? 's' : ''} Awaiting Approval:</span>
+              <span class="text-xs" style="color: #b45309; margin-left: 6px;">New users must be approved by an administrator before they are added to the active user directory.</span>
             </div>
-            <button id="quick-review-pending-btn" class="btn btn-xs" style="background: #f59e0b; color: white; font-weight: 700; border: none; padding: 6px 14px; cursor: pointer; border-radius: var(--radius-md); box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);">
+            <button id="quick-review-pending-btn" class="btn btn-xs" style="background: #f59e0b; color: white; font-weight: 700; border: none; padding: 5px 12px; cursor: pointer; border-radius: var(--radius-sm);">
               Review Pending (${pendingUsers.length})
             </button>
           </div>
         ` : ''}
 
-        <div class="admin-section-glow glow-users">
-          <div class="admin-glass-panel" style="border-top: 3px solid #2563eb;">
-            <div class="admin-glass-header flex justify-between items-center flex-wrap gap-3" style="background: rgba(239, 246, 255, 0.85); border-bottom: 1px solid rgba(191, 219, 254, 0.8);">
-              <div class="flex items-center gap-3">
-                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #2563eb; box-shadow: 0 0 12px rgba(37, 99, 235, 0.8);"></span>
-                <h2 class="text-lg font-bold" style="color: #1e3a8a; margin: 0; font-size: 1.25rem;">Users & Credentials Directory</h2>
+        <div class="card" style="border-top: 3px solid #2563eb;">
+          <div class="card-header flex justify-between items-center flex-wrap gap-3" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+            <div class="flex items-center gap-3">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #2563eb;"></span>
+              <h2 class="text-lg font-bold" style="color: #1e3a8a; margin: 0; font-size: 1.25rem;">Users Directory</h2>
+            </div>
+            <div class="flex gap-2 items-center flex-wrap">
+              <div style="position: relative; width: 260px;">
+                <input type="text" id="admin-user-search" class="form-input" placeholder="Search members..." value="${escapeHTML(userSearchTerm)}" style="padding: 0.4rem 0.75rem 0.4rem 2rem; font-size: var(--font-xs);">
+                <svg style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               </div>
-              <div class="flex gap-2 items-center flex-wrap">
-                <div style="position: relative; width: 260px;">
-                  <input type="text" id="admin-user-search" class="form-input" placeholder="Search members..." value="${escapeHTML(userSearchTerm)}" style="padding: 0.45rem 0.75rem 0.45rem 2rem; font-size: var(--font-xs); background: rgba(255, 255, 255, 0.9); border: 1px solid #bfdbfe; border-radius: var(--radius-md);">
-                  <svg style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                </div>
-                <button id="toggle-all-pwd-btn" class="btn btn-secondary btn-sm glass-btn" style="background: rgba(255, 255, 255, 0.85); border: 1px solid #bfdbfe; color: #1e3a8a; font-weight: 600;">
-                  ${showAllPasswords ? 'Hide Passwords' : 'Show Passwords'}
-                </button>
-              </div>
+              <button id="toggle-all-pwd-btn" class="btn btn-secondary btn-sm">
+                ${showAllPasswords ? 'Hide Passwords' : 'Show Passwords'}
+              </button>
             </div>
+          </div>
 
-            <!-- Quick Filters Bar -->
-            <div class="admin-glass-filter-bar" style="background: rgba(239, 246, 255, 0.65); border-bottom: 1px solid rgba(191, 219, 254, 0.8);">
-              <button class="user-filter-chip btn btn-xs ${userFilter === 'approved' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="approved">
-                Active Directory (${approvedUsers.length})
-              </button>
-              <button class="user-filter-chip btn btn-xs ${userFilter === 'pending' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="pending" style="${pendingUsers.length > 0 ? 'border: 1.5px solid #f59e0b; color: #92400e; font-weight: 700;' : ''}">
-                Pending Approvals (${pendingUsers.length})
-              </button>
-              <button class="user-filter-chip btn btn-xs ${userFilter === 'rejected' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="rejected">
-                Disapproved (${allUsers.filter(u => u.status === 'rejected').length})
-              </button>
-              <button class="user-filter-chip btn btn-xs ${userFilter === 'admins' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="admins">
-                Admins & Organizers (${staffUsers})
-              </button>
-              <button class="user-filter-chip btn btn-xs ${userFilter === 'restricted' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="restricted">
-                Restricted (${restrictedUsers})
-              </button>
-              <button class="user-filter-chip btn btn-xs ${userFilter === 'all' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="all">
-                All Accounts (${allUsers.length})
-              </button>
-              <span id="user-count-badge" class="text-xs" style="margin-left: auto; color: #1e40af; font-weight: 600;">
-                Loading...
-              </span>
-            </div>
+          <!-- Quick Filters Bar -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle);">
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'approved' ? 'btn-primary' : 'btn-secondary'}" data-filter="approved">
+              Active Directory (${approvedUsers.length})
+            </button>
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'pending' ? 'btn-primary' : 'btn-secondary'}" data-filter="pending" style="${pendingUsers.length > 0 ? 'border: 1.5px solid #f59e0b; color: #92400e; font-weight: 700;' : ''}">
+              Pending Approvals (${pendingUsers.length})
+            </button>
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'admins' ? 'btn-primary' : 'btn-secondary'}" data-filter="admins">
+              Admins & Organizers (${staffUsers})
+            </button>
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'restricted' ? 'btn-primary' : 'btn-secondary'}" data-filter="restricted">
+              Restricted (${restrictedUsers})
+            </button>
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'rejected' ? 'btn-primary' : 'btn-secondary'}" data-filter="rejected">
+              Disapproved (${rejectedUsers.length})
+            </button>
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-filter="all">
+              All Accounts (${allUsers.length})
+            </button>
+            <span id="user-count-badge" class="text-xs text-muted" style="margin-left: auto;">
+              Loading...
+            </span>
+          </div>
 
-            <!-- Users Section Frosted Blue Glass Table -->
-            <div class="table-users-wrap">
-              <table class="table-users">
-                <thead>
-                  <tr>
-                    <th style="width: 20%;">
-                      <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #2563eb; margin-right: 6px;"></span>Member Profile
-                    </th>
-                    <th style="width: 26%;">
-                      <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #16a34a; margin-right: 6px;"></span>Email
-                    </th>
-                    <th style="width: 16%;">
-                      <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #64748b; margin-right: 6px;"></span>Plaintext Password
-                    </th>
-                    <th style="width: 14%;">
-                      <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ea580c; margin-right: 6px;"></span>Branch & Year
-                    </th>
-                    <th style="width: 8%;">
-                      Role
-                    </th>
-                    <th style="width: 7%;">
-                      Status
-                    </th>
-                    <th style="text-align: right; width: 9%;">
-                      Admin Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody id="admin-users-tbody"></tbody>
-              </table>
-            </div>
+          <!-- Users Table -->
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem; border: 1px solid var(--border-subtle);">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border-subtle);">
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 20%; background: #eff6ff; color: #1e40af;">
+                    <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #2563eb; margin-right: 6px;"></span>Member Profile
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 26%; background: #f0fdf4; color: #166534;">
+                    <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #16a34a; margin-right: 6px;"></span>Email
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 16%; background: #f8fafc; color: #334155;">
+                    <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #64748b; margin-right: 6px;"></span>Plaintext Password
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 14%; background: #fff7ed; color: #9a3412;">
+                    <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ea580c; margin-right: 6px;"></span>Branch & Year
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 8%; background: #f5f3ff; color: #5b21b6;">
+                    Role
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 7%; background: #f8fafc; color: #334155;">
+                    Status
+                  </th>
+                  <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; text-align: right; width: 9%; background: #f8fafc; color: #334155;">
+                    Admin Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-tbody"></tbody>
+            </table>
           </div>
         </div>
       `;
@@ -234,79 +217,79 @@ export async function renderAdminDashboardPage(container, { user }) {
           const isRestricted = u.restrictedUntil && new Date(u.restrictedUntil) > new Date();
           const isNew = u.createdAt && (Date.now() - new Date(u.createdAt).getTime() < 48 * 3600 * 1000);
 
-          const rowBg = isPending ? 'rgba(254, 243, 199, 0.75)' : isBlocked ? 'rgba(254, 226, 226, 0.75)' : (idx % 2 === 0 ? 'rgba(255, 255, 255, 0.75)' : 'rgba(239, 246, 255, 0.6)');
-          const rowBorderLeft = isPending ? '4px solid #f59e0b' : isBlocked ? '4px solid var(--color-danger)' : '4px solid transparent';
+          const rowBg = isPending ? '#fffdf5' : isBlocked ? '#fff5f5' : 'transparent';
+          const rowBorderLeft = isPending ? '3px solid #f59e0b' : isBlocked ? '3px solid var(--color-danger)' : '3px solid transparent';
 
           return `
-            <tr style="background: ${rowBg}; border-left: ${rowBorderLeft}; border-bottom: 1px solid rgba(191, 219, 254, 0.5);">
+            <tr style="background: ${rowBg}; border-left: ${rowBorderLeft}; border-bottom: 1px solid var(--border-subtle);">
               <!-- Member Profile -->
-              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4);">
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle); background: #fbfdff;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <div style="width: 32px; height: 32px; border-radius: 50%; background: ${isPending ? '#fef3c7' : '#dbeafe'}; color: ${isPending ? '#b45309' : '#1d4ed8'}; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; flex-shrink: 0; border: 1.5px solid ${isPending ? '#fde68a' : '#bfdbfe'}; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);">
+                  <div style="width: 32px; height: 32px; border-radius: 50%; background: ${isPending ? '#fef3c7' : '#dbeafe'}; color: ${isPending ? '#b45309' : '#1d4ed8'}; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0; border: 1.5px solid ${isPending ? '#fde68a' : '#bfdbfe'};">
                     ${escapeHTML((u.name || u.email || 'M')[0].toUpperCase())}
                   </div>
                   <div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                      <span style="font-weight: 700; color: #0f172a; font-size: 0.94rem;">${escapeHTML(u.name || 'Member')}</span>
-                      ${isPending ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 9px; padding: 1px 5px; font-weight: normal;">REQUEST</span>` : isNew ? `<span class="badge" style="background: var(--color-success); color: white; font-size: 9px; padding: 1px 4px; font-weight: normal;">NEW</span>` : ''}
+                    <div style="font-weight: var(--fw-semibold); display: flex; align-items: center; gap: 6px; color: #1e3a8a;">
+                      ${escapeHTML(u.name || 'Member')}
+                      ${isPending ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 9px; padding: 1px 5px;">REQUEST</span>` : isNew ? `<span class="badge" style="background: var(--color-success); color: white; font-size: 9px; padding: 1px 4px;">NEW</span>` : ''}
                     </div>
-                    <div class="text-xs" style="color: #64748b; font-weight: normal;">${escapeHTML(u.phone || 'No phone')}</div>
+                    <div class="text-xs text-muted">${escapeHTML(u.phone || 'No phone')}</div>
                   </div>
                 </div>
               </td>
 
               <!-- Email Capsule -->
-              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4); font-weight: normal;">
-                <div style="font-size: var(--font-xs); font-family: monospace; color: #166534; background: rgba(240, 253, 244, 0.9); border: 1px solid #86efac; padding: 3px 8px; border-radius: var(--radius-sm); word-break: break-all; display: inline-block; font-weight: normal;" title="${escapeHTML(u.email)}">
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle); background: #fcfdfc;">
+                <div style="font-size: var(--font-xs); font-family: monospace; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: var(--radius-sm); word-break: break-all; display: inline-block; font-weight: 500;" title="${escapeHTML(u.email)}">
                   ${escapeHTML(u.email)}
                 </div>
               </td>
 
-              <!-- Plaintext Password Capsule -->
-              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4); font-weight: normal;">
+              <!-- Plaintext Password Capsule (Neutral Styling - No Purple) -->
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle); background: #f8fafc;">
                 <div class="flex items-center gap-2">
-                  <span class="user-pwd-display font-mono text-xs" data-uid="${escapeHTML(uid)}" data-pwd="${escapeHTML(pwd)}" style="background: rgba(241, 245, 249, 0.95); border: 1px solid #cbd5e1; color: #0f172a; font-weight: normal; padding: 3px 8px; border-radius: var(--radius-sm); letter-spacing: ${showAllPasswords ? 'normal' : '2px'};">
+                  <span class="user-pwd-display font-mono text-xs" data-uid="${escapeHTML(uid)}" data-pwd="${escapeHTML(pwd)}" style="background: #e2e8f0; border: 1px solid #cbd5e1; color: #0f172a; font-weight: 600; padding: 4px 8px; border-radius: var(--radius-sm); letter-spacing: ${showAllPasswords ? 'normal' : '2px'};">
                     ${showAllPasswords ? escapeHTML(pwd) : '••••••••'}
                   </span>
-                  <button type="button" class="btn btn-secondary btn-xs toggle-single-pwd-btn glass-btn" data-uid="${escapeHTML(uid)}" style="font-size: 10px; padding: 2px 7px; background: rgba(255, 255, 255, 0.85); border: 1px solid #cbd5e1; color: #1e3a8a; font-weight: normal;">
+                  <button type="button" class="btn btn-secondary btn-xs toggle-single-pwd-btn" data-uid="${escapeHTML(uid)}" style="font-size: 10px; padding: 2px 6px;">
                     ${showAllPasswords ? 'Hide' : 'Show'}
                   </button>
                 </div>
               </td>
 
               <!-- Department & Year -->
-              <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(191, 219, 254, 0.4); font-weight: normal;">
-                <div style="color: #9a3412; font-weight: normal;">${escapeHTML(u.department || 'General Branch')}</div>
-                <div style="color: #64748b; font-weight: normal;">${escapeHTML(u.year ? `Year ${u.year}` : 'Standard')}</div>
+              <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid var(--border-subtle);">
+                <div style="color: #9a3412; font-weight: 500;">${escapeHTML(u.department || 'General Branch')}</div>
+                <div class="text-muted">${escapeHTML(u.year ? `Year ${u.year}` : 'Standard')}</div>
               </td>
 
               <!-- Role Pill -->
-              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4); font-weight: normal;">
-                <button class="badge change-role-btn" data-uid="${escapeHTML(uid)}" data-current-role="${escapeHTML(u.role || 'member')}" title="Click to modify role" style="cursor: pointer; border: 1px solid var(--border-subtle); background: ${u.role === 'admin' ? 'var(--color-primary)' : u.role === 'organizer' ? '#7e22ce' : 'var(--bg-subtle)'}; color: ${u.role === 'admin' || u.role === 'organizer' ? 'white' : 'inherit'}; font-weight: normal;">
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
+                <button class="badge change-role-btn" data-uid="${escapeHTML(uid)}" data-current-role="${escapeHTML(u.role || 'member')}" title="Click to modify role" style="cursor: pointer; border: 1px solid var(--border-subtle); background: ${u.role === 'admin' ? 'var(--color-primary)' : u.role === 'organizer' ? '#7e22ce' : 'var(--bg-subtle)'}; color: ${u.role === 'admin' || u.role === 'organizer' ? 'white' : 'inherit'};">
                   ${escapeHTML(u.role ? u.role.toUpperCase() : 'MEMBER')}
                 </button>
               </td>
 
-              <!-- Status Badge (Pending vs Active vs Blocked vs Disapproved) -->
-              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4); font-weight: normal;">
+              <!-- Status Badge (Pending vs Active vs Blocked) -->
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
                 ${isPending ? `
-                  <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: normal; border: 1px solid #fde68a;">
+                  <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; border: 1px solid #fde68a;">
                     <span class="status-dot status-dot-warning" style="background: #f59e0b;"></span> Pending
                   </span>
                 ` : u.status === 'rejected' ? `
-                  <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #b91c1c; font-weight: normal; border: 1px solid rgba(239, 68, 68, 0.3);">
+                  <span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 700; border: 1px solid #fca5a5;">
                     <span class="status-dot status-dot-danger"></span> Disapproved
                   </span>
                 ` : isBlocked ? `
-                  <span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: normal;">
+                  <span class="badge" style="background: #fee2e2; color: #991b1b;">
                     <span class="status-dot status-dot-danger"></span> Blocked
                   </span>
                 ` : `
-                  <span class="badge" style="background: #ecfdf5; color: #047857; font-weight: normal;">
+                  <span class="badge" style="background: #ecfdf5; color: #047857;">
                     <span class="status-dot status-dot-success"></span> Active
                   </span>
                 `}
-                ${isRestricted ? `<div class="text-xs text-danger" style="margin-top: 2px; font-weight: normal;">Restricted</div>` : ''}
+                ${isRestricted ? `<div class="text-xs text-danger" style="margin-top: 2px;">Restricted</div>` : ''}
               </td>
 
               <!-- Action Buttons -->
@@ -321,8 +304,8 @@ export async function renderAdminDashboardPage(container, { user }) {
                     Edit
                   </button>
                   ${u.status !== 'rejected' && u.role !== 'admin' ? `
-                    <button class="btn btn-xs reject-user-btn" data-uid="${escapeHTML(uid)}" title="Disapprove and permanently bar this email from re-registering" style="background: rgba(220, 38, 38, 0.12); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3); font-weight: 600; padding: 2px 7px;">
-                      Reject
+                    <button class="btn btn-outline btn-xs reject-user-btn" data-uid="${escapeHTML(uid)}" title="Disapprove and permanently bar this email from re-registering" style="color: #dc2626; border-color: #fca5a5; font-weight: 600;">
+                      Disapprove
                     </button>
                   ` : ''}
                   ${!isBlocked ? `
@@ -429,6 +412,41 @@ export async function renderAdminDashboardPage(container, { user }) {
       // Attach row-level listeners (called whenever rows are rendered)
       const attachUserRowListeners = () => {
         // Approve User
+        // Disapprove / Reject User from Directory
+        tbody.querySelectorAll('.reject-user-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const uid = btn.getAttribute('data-uid');
+            const target = allUsers.find(u => (u.uid || u.id) === uid);
+            if (!target) return;
+
+            const confirmed = confirm(`Are you sure you want to disapprove ${target.name} (${target.email})?\n\nThis will revoke their access and permanently bar their email from registering again.`);
+            if (!confirmed) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Disapproving...';
+            try {
+              if (target.email) {
+                store.disapproveEmail(target.email);
+              }
+              await store.updateDoc('users', uid, { status: 'rejected' });
+              await notificationsService.create({
+                userId: uid,
+                type: 'account_rejected',
+                title: 'Membership Status Update',
+                message: 'Your ShareBox account has been disapproved by the administrator. Contact administration if you have questions.',
+                refId: null
+              });
+              toast.info(`Disapproved ${target.name}. Email permanently barred from re-registering.`);
+              target.status = 'rejected';
+              renderContent();
+            } catch (err) {
+              toast.error('Failed to disapprove user: ' + err.message);
+              btn.disabled = false;
+              btn.textContent = 'Disapprove';
+            }
+          });
+        });
+
         tbody.querySelectorAll('.approve-user-btn').forEach(btn => {
           btn.addEventListener('click', async () => {
             const uid = btn.getAttribute('data-uid');
@@ -451,41 +469,6 @@ export async function renderAdminDashboardPage(container, { user }) {
               toast.error('Failed to approve member: ' + err.message);
               btn.disabled = false;
               btn.textContent = '✓ Approve';
-            }
-          });
-        });
-
-        // Reject / Disapprove User from Directory
-        tbody.querySelectorAll('.reject-user-btn').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const uid = btn.getAttribute('data-uid');
-            const target = allUsers.find(u => (u.uid || u.id) === uid);
-            if (!target) return;
-
-            const confirmed = confirm(`Are you sure you want to reject/disapprove ${target.name} (${target.email})?\n\nThis will revoke their access and permanently bar their email from registering again.`);
-            if (!confirmed) return;
-
-            btn.disabled = true;
-            btn.textContent = 'Rejecting...';
-            try {
-              if (target.email) {
-                store.disapproveEmail(target.email);
-              }
-              await store.updateDoc('users', uid, { status: 'rejected' });
-              await notificationsService.create({
-                userId: uid,
-                type: 'account_rejected',
-                title: 'Membership Status Update',
-                message: 'Your ShareBox account has been disapproved by the administrator. Contact administration if you have questions.',
-                refId: null
-              });
-              toast.info(`Disapproved ${target.name}. Email permanently barred from re-registering.`);
-              target.status = 'rejected';
-              renderContent();
-            } catch (err) {
-              toast.error('Failed to reject user: ' + err.message);
-              btn.disabled = false;
-              btn.textContent = 'Reject';
             }
           });
         });
@@ -698,102 +681,100 @@ export async function renderAdminDashboardPage(container, { user }) {
       });
 
       tabArea.innerHTML = `
-        <div class="admin-section-glow glow-requests">
-          <div class="admin-glass-panel" style="border-top: 3px solid #059669;">
-            <div class="admin-glass-header flex justify-between items-center flex-wrap gap-2" style="background: rgba(236, 253, 245, 0.85); border-bottom: 1px solid rgba(167, 243, 208, 0.8);">
-              <div class="flex items-center gap-3">
-                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #059669; box-shadow: 0 0 12px rgba(5, 150, 105, 0.8);"></span>
-                <h2 class="text-lg font-bold" style="color: #065f46; margin: 0; font-size: 1.25rem;">Campus Equipment Requests</h2>
-              </div>
-              <span class="badge" style="background: rgba(5, 150, 105, 0.15); color: #047857; border: 1.5px solid rgba(5, 150, 105, 0.3); font-weight: 700; padding: 4px 10px; border-radius: var(--radius-sm);">
-                ${allRequests.length} Total Requests
-              </span>
+        <div class="card" style="border-top: 3px solid #059669;">
+          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+            <div class="flex items-center gap-3">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #059669;"></span>
+              <h2 class="text-lg font-bold" style="color: #065f46; margin: 0; font-size: 1.25rem;">Campus Requests</h2>
             </div>
+            <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">
+              ${allRequests.length} Total
+            </span>
+          </div>
 
-            <!-- Status Filter Pills Bar -->
-            <div class="admin-glass-filter-bar" style="background: rgba(236, 253, 245, 0.65); border-bottom: 1px solid rgba(167, 243, 208, 0.8);">
-              <button class="req-filter-btn btn btn-xs ${reqFilter === 'all' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-req-filter="all">
-                All (${allRequests.length})
-              </button>
-              <button class="req-filter-btn btn btn-xs ${reqFilter === 'open' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-req-filter="open">
-                Open (${openReqs})
-              </button>
-              <button class="req-filter-btn btn btn-xs ${reqFilter === 'accepted' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-req-filter="accepted">
-                In-Progress (${allRequests.filter(r => ['accepted', 'handed_over', 'returned'].includes(r.status)).length})
-              </button>
-              <button class="req-filter-btn btn btn-xs ${reqFilter === 'completed' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-req-filter="completed">
-                Completed (${completedReqs})
-              </button>
-            </div>
+          <!-- Status Filter Pills Bar -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle);">
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="all">
+              All (${allRequests.length})
+            </button>
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'open' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="open">
+              Open (${openReqs})
+            </button>
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'accepted' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="accepted">
+              In-Progress (${allRequests.filter(r => ['accepted', 'handed_over', 'returned'].includes(r.status)).length})
+            </button>
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'completed' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="completed">
+              Completed (${completedReqs})
+            </button>
+          </div>
 
-            <!-- Requests Section Frosted Green Glass Table -->
-            <div class="table-requests-wrap">
-              <table class="table-requests">
-                <thead>
-                  <tr>
-                    <th style="width: 28%;"><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #059669; margin-right: 6px;"></span>Equipment / Item Name</th>
-                    <th style="width: 14%;"><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #10b981; margin-right: 6px;"></span>Category & Qty</th>
-                    <th style="width: 20%;"><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #047857; margin-right: 6px;"></span>Requester & Helper</th>
-                    <th style="width: 12%;">Needed By</th>
-                    <th style="width: 10%;">Status</th>
-                    <th style="text-align: right; width: 16%;">Admin Control</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${filteredRequests.length === 0 ? `
-                    <tr><td colspan="6" style="padding: var(--space-8); text-align: center; color: #047857; font-weight: 500;">No campus requests found under this filter.</td></tr>
-                  ` : filteredRequests.map((r, idx) => `
-                    <tr style="border-bottom: 1px solid rgba(167, 243, 208, 0.5);">
-                      <!-- Item Title with Direct Clickable Redirect -->
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(167, 243, 208, 0.4);">
-                        <a href="#/requests/${escapeHTML(r.id)}" class="item-link" title="Click to view details of ${escapeHTML(r.itemName)}" style="color: #047857; font-weight: 700; text-decoration: underline; font-size: 0.95rem;">
-                          ${escapeHTML(r.itemName || 'Equipment')}
+          <!-- Requests Table -->
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: var(--font-sm); border: 1px solid var(--border-subtle);">
+              <thead>
+                <tr style="background: #f1f5f9; border-bottom: 2px solid var(--border-subtle);">
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 28%;">Equipment / Item Name</th>
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 14%;">Category & Qty</th>
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 20%;">Requester & Helper</th>
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 12%;">Needed By</th>
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 10%;">Status</th>
+                  <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); text-align: right; width: 16%;">Admin Control</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredRequests.length === 0 ? `
+                  <tr><td colspan="6" style="padding: var(--space-8); text-align: center;" class="text-muted">No campus requests found under this filter.</td></tr>
+                ` : filteredRequests.map((r, idx) => `
+                  <tr style="border-bottom: 1px solid var(--border-subtle);">
+                    <!-- Item Title with Direct Clickable Redirect -->
+                    <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
+                      <a href="#/requests/${escapeHTML(r.id)}" class="item-link" title="Click to view details of ${escapeHTML(r.itemName)}" style="color: var(--color-primary); font-weight: var(--fw-semibold); text-decoration: underline;">
+                        ${escapeHTML(r.itemName || 'Equipment')}
+                      </a>
+                      <div class="text-xs text-muted" style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
+                        ${escapeHTML(r.description || 'No description provided')}
+                      </div>
+                    </td>
+                    <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
+                      <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">${escapeHTML(r.category || 'General')}</span>
+                      <div class="text-xs text-muted" style="margin-top: 2px;">Qty: <strong>${r.quantity || 1}</strong></div>
+                    </td>
+                    <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid var(--border-subtle);">
+                      <div>Requester: <strong>${escapeHTML(r.requesterName || 'Student')}</strong></div>
+                      ${r.helperName ? `<div style="color: var(--color-success); margin-top: 2px;">Helper: <strong>${escapeHTML(r.helperName)}</strong></div>` : '<div class="text-muted" style="margin-top: 2px;">No helper assigned yet</div>'}
+                    </td>
+                    <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid var(--border-subtle);">
+                      ${r.neededBy ? new Date(r.neededBy).toLocaleDateString() : 'ASAP'}
+                    </td>
+                    <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
+                      <span class="badge badge-status-${escapeHTML(r.status || 'open')}">
+                        ${escapeHTML(r.status || 'OPEN')}
+                      </span>
+                    </td>
+                    <td style="padding: var(--space-3) var(--space-4); text-align: right; white-space: nowrap;">
+                      <div class="flex gap-1 justify-end flex-wrap items-center">
+                        <a href="#/requests/${escapeHTML(r.id)}" class="btn btn-secondary btn-xs">
+                          View
                         </a>
-                        <div class="text-xs" style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; color: #475569;">
-                          ${escapeHTML(r.description || 'No description provided')}
-                        </div>
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(167, 243, 208, 0.4); font-weight: normal;">
-                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #a7f3d0; color: #065f46; font-weight: normal;">${escapeHTML(r.category || 'General')}</span>
-                        <div class="text-xs" style="margin-top: 3px; color: #475569; font-weight: normal;">Qty: ${r.quantity || 1}</div>
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(167, 243, 208, 0.4); font-weight: normal;">
-                        <div style="color: #0f172a; font-weight: normal;">Requester: ${escapeHTML(r.requesterName || 'Student')}</div>
-                        ${r.helperName ? `<div style="color: #059669; font-weight: normal; margin-top: 2px;">Helper: ${escapeHTML(r.helperName)}</div>` : '<div style="color: #64748b; font-weight: normal; margin-top: 2px;">No helper assigned yet</div>'}
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(167, 243, 208, 0.4); color: #334155; font-weight: normal;">
-                        ${r.neededBy ? new Date(r.neededBy).toLocaleDateString() : 'ASAP'}
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(167, 243, 208, 0.4); font-weight: normal;">
-                        <span class="badge badge-status-${escapeHTML(r.status || 'open')}" style="font-weight: normal;">
-                          ${escapeHTML(r.status || 'OPEN')}
-                        </span>
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); text-align: right; white-space: nowrap;">
-                        <div class="flex gap-1 justify-end flex-wrap items-center">
-                          <a href="#/requests/${escapeHTML(r.id)}" class="btn btn-secondary btn-xs glass-btn" style="border: 1px solid #a7f3d0; background: rgba(255, 255, 255, 0.85); color: #065f46; font-weight: 600;">
-                            View
-                          </a>
-                          ${r.status !== 'completed' ? `
-                            <button class="btn btn-success btn-xs force-complete-req-btn" data-id="${escapeHTML(r.id)}" title="Force Mark Completed">
-                              Complete
-                            </button>
-                          ` : ''}
-                          ${r.status !== 'open' ? `
-                            <button class="btn btn-secondary btn-xs force-reopen-req-btn glass-btn" data-id="${escapeHTML(r.id)}" title="Re-open Request to Feed" style="border: 1px solid #cbd5e1; background: rgba(255, 255, 255, 0.85);">
-                              Reopen
-                            </button>
-                          ` : ''}
-                          <button class="btn btn-danger btn-xs delete-req-btn" data-id="${escapeHTML(r.id)}" title="Permanently Delete Request">
-                            Delete
+                        ${r.status !== 'completed' ? `
+                          <button class="btn btn-success btn-xs force-complete-req-btn" data-id="${escapeHTML(r.id)}" title="Force Mark Completed">
+                            Complete
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
+                        ` : ''}
+                        ${r.status !== 'open' ? `
+                          <button class="btn btn-secondary btn-xs force-reopen-req-btn" data-id="${escapeHTML(r.id)}" title="Re-open Request to Feed">
+                            Reopen
+                          </button>
+                        ` : ''}
+                        <button class="btn btn-danger btn-xs delete-req-btn" data-id="${escapeHTML(r.id)}" title="Permanently Delete Request">
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
           </div>
         </div>
       `;
@@ -844,68 +825,36 @@ export async function renderAdminDashboardPage(container, { user }) {
     // ==========================================
     else if (activeTab === 'events') {
       tabArea.innerHTML = `
-        <div class="admin-section-glow glow-events">
-          <div class="admin-glass-panel" style="border-top: 3px solid #7c3aed;">
-            <div class="admin-glass-header flex justify-between items-center flex-wrap gap-2" style="background: rgba(245, 243, 255, 0.85); border-bottom: 1px solid rgba(221, 214, 254, 0.8);">
-              <div class="flex items-center gap-3">
-                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #7c3aed; box-shadow: 0 0 12px rgba(124, 58, 237, 0.8);"></span>
-                <h2 class="text-lg font-bold" style="color: #5b21b6; margin: 0; font-size: 1.25rem;">Campus Events & Hackathons</h2>
-              </div>
-              <button id="admin-create-event-btn" class="btn btn-primary btn-sm" style="background: #7c3aed; border-color: #6d28d9; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);">+ Create Event</button>
+        <div class="card" style="border-top: 3px solid #7c3aed;">
+          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+            <div class="flex items-center gap-3">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #7c3aed;"></span>
+              <h2 class="text-lg font-bold" style="color: #5b21b6; margin: 0; font-size: 1.25rem;">Campus Events & Hackathons</h2>
             </div>
-
-            <!-- Events Section Frosted Violet Glass Table -->
-            <div class="table-events-wrap">
-              <table class="table-events">
-                <thead>
-                  <tr>
-                    <th style="width: 32%;"><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #7c3aed; margin-right: 6px;"></span>Event Title & Description</th>
-                    <th style="width: 15%;"><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #a855f7; margin-right: 6px;"></span>Type / Category</th>
-                    <th style="width: 18%;">Venue</th>
-                    <th style="width: 13%;">Join Code</th>
-                    <th style="width: 10%;">Members</th>
-                    <th style="text-align: right; width: 12%;">Admin Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${allEvents.length === 0 ? `
-                    <tr><td colspan="6" style="padding: var(--space-8); text-align: center; color: #6d28d9; font-weight: 500;">No campus events registered yet.</td></tr>
-                  ` : allEvents.map(e => `
-                    <tr style="border-bottom: 1px solid rgba(221, 214, 254, 0.5);">
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(221, 214, 254, 0.4);">
-                        <a href="#/events/${escapeHTML(e.id)}" style="color: #5b21b6; font-weight: 700; text-decoration: underline; font-size: 0.95rem;">
-                          ${escapeHTML(e.title)}
-                        </a>
-                        <div class="text-xs" style="margin-top: 2px; color: #475569;">${escapeHTML(e.description || 'Campus coordination event.')}</div>
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(221, 214, 254, 0.4); font-weight: normal;">
-                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #c4b5fd; color: #6d28d9; font-weight: normal;">${escapeHTML(e.type || 'Event')}</span>
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(221, 214, 254, 0.4); color: #0f172a; font-weight: normal;">
-                        ${escapeHTML(e.venue || 'Campus Main')}
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(221, 214, 254, 0.4); font-weight: normal;">
-                        <span class="font-mono" style="background: rgba(255, 255, 255, 0.95); border: 1px solid #c4b5fd; color: #5b21b6; font-weight: normal; padding: 2px 7px; border-radius: var(--radius-sm); letter-spacing: 1px;">
-                          ${escapeHTML(e.joinCode || 'N/A')}
-                        </span>
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(221, 214, 254, 0.4); color: #0f172a; font-weight: normal;">
-                        ${e.memberCount || 1} registered
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); text-align: right; white-space: nowrap;">
-                        <div class="flex gap-1 justify-end flex-wrap items-center">
-                          <a href="#/events/${escapeHTML(e.id)}" class="btn btn-secondary btn-xs glass-btn" style="border: 1px solid #c4b5fd; background: rgba(255, 255, 255, 0.85); color: #5b21b6; font-weight: 600;">
-                            View Feed
-                          </a>
-                          <button class="btn btn-danger btn-xs delete-event-btn" data-id="${escapeHTML(e.id)}" title="Delete Event">
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+            <button id="admin-create-event-btn" class="btn btn-primary btn-sm">+ Create Event</button>
+          </div>
+          <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4);">
+              ${allEvents.length === 0 ? `
+                <div class="text-muted" style="grid-column: 1 / -1; text-align: center; padding: var(--space-8);">No campus events registered yet.</div>
+              ` : allEvents.map(e => `
+                <div class="card" style="padding: var(--space-4); border: 1px solid var(--border-subtle);">
+                  <div class="flex justify-between items-start gap-2">
+                    <h4 class="text-sm font-bold" style="margin: 0;">${escapeHTML(e.title)}</h4>
+                    <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">${escapeHTML(e.type || 'Event')}</span>
+                  </div>
+                  <p class="text-xs text-muted" style="margin: var(--space-2) 0; line-height: 1.5;">${escapeHTML(e.description || 'Community resource coordination.')}</p>
+                  <div class="flex flex-col gap-1 text-xs" style="background: var(--bg-subtle); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); margin-bottom: var(--space-3);">
+                    <div><strong>Venue:</strong> ${escapeHTML(e.venue || 'Campus')}</div>
+                    <div><strong>Join Code:</strong> <span class="font-mono font-bold">${escapeHTML(e.joinCode || 'N/A')}</span></div>
+                    <div><strong>Participants:</strong> ${e.memberCount || 1} registered</div>
+                  </div>
+                  <div class="flex justify-end gap-2" style="border-top: 1px solid var(--border-subtle); padding-top: var(--space-2);">
+                    <a href="#/events/${escapeHTML(e.id)}" class="btn btn-secondary btn-xs">View Feed</a>
+                    <button class="btn btn-danger btn-xs delete-event-btn" data-id="${escapeHTML(e.id)}">Delete Event</button>
+                  </div>
+                </div>
+              `).join('')}
             </div>
           </div>
         </div>
@@ -1001,93 +950,83 @@ export async function renderAdminDashboardPage(container, { user }) {
       });
 
       tabArea.innerHTML = `
-        <div class="admin-section-glow glow-reports">
-          <div class="admin-glass-panel" style="border-top: 3px solid #dc2626;">
-            <div class="admin-glass-header flex justify-between items-center flex-wrap gap-2" style="background: rgba(254, 242, 242, 0.85); border-bottom: 1px solid rgba(254, 202, 202, 0.8);">
-              <div class="flex items-center gap-3">
-                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #dc2626; box-shadow: 0 0 12px rgba(220, 38, 38, 0.8);"></span>
-                <h2 class="text-lg font-bold" style="color: #991b1b; margin: 0; font-size: 1.25rem;">Equipment Damage Disputes</h2>
+        <div class="card" style="border-top: 3px solid #dc2626;">
+          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+            <div class="flex items-center gap-3">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #dc2626;"></span>
+              <h2 class="text-lg font-bold" style="color: #991b1b; margin: 0; font-size: 1.25rem;">Equipment Damage Disputes</h2>
+            </div>
+            <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">
+              ${pendingDisputes} Pending Review
+            </span>
+          </div>
+
+          <!-- Filter Pills Bar -->
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle);">
+            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-rep-filter="all">
+              All (${allReports.length})
+            </button>
+            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'pending' ? 'btn-primary' : 'btn-secondary'}" data-rep-filter="pending">
+              Pending (${pendingDisputes})
+            </button>
+            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'resolved' ? 'btn-primary' : 'btn-secondary'}" data-rep-filter="resolved">
+              Resolved (${allReports.filter(r => r.status === 'resolved').length})
+            </button>
+          </div>
+
+          <div class="card-body">
+            ${filteredReports.length === 0 ? `
+              <div class="text-center text-muted" style="padding: var(--space-8);">No damage reports match the current filter.</div>
+            ` : `
+              <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+                ${filteredReports.map(r => {
+                  const isResolved = r.status === 'resolved';
+                  return `
+                    <div class="card" style="padding: var(--space-4); border-left: 4px solid ${isResolved ? 'var(--color-success)' : 'var(--color-danger)'};">
+                      <div class="flex justify-between items-start flex-wrap gap-2">
+                        <div>
+                          <div class="flex items-center gap-2">
+                            <span class="badge" style="background: ${isResolved ? 'var(--color-success)' : 'var(--color-danger)'}; color: white;">
+                              Dispute #${escapeHTML(r.id)}
+                            </span>
+                            <span class="badge ${isResolved ? 'badge-status-completed' : 'badge-status-open'}">
+                              ${escapeHTML(r.status ? r.status.toUpperCase() : 'SUBMITTED')}
+                            </span>
+                          </div>
+                          <div class="text-sm font-bold" style="margin-top: 6px;">
+                            Related Request: <a href="#/requests/${escapeHTML(r.requestId)}" style="color: var(--color-primary); text-decoration: underline;">#${escapeHTML(r.requestId)}</a>
+                          </div>
+                        </div>
+                        <div class="text-xs text-muted">Filed: ${new Date(r.createdAt).toLocaleString()}</div>
+                      </div>
+
+                      <div style="margin: var(--space-3) 0; font-size: var(--font-sm); line-height: 1.5;">
+                        <div style="background: var(--bg-subtle); padding: var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                          <strong style="display: block; margin-bottom: 2px;">Owner's Damage Claim:</strong>
+                          ${escapeHTML(r.description || 'No description filed')}
+                        </div>
+                        ${r.borrowerResponse ? `
+                          <div style="margin-top: var(--space-2); padding: var(--space-3); background: #f0fdf4; border-radius: var(--radius-sm); border-left: 3px solid var(--color-success); border: 1px solid #bbf7d0;">
+                            <strong style="color: var(--color-success); display: block; margin-bottom: 2px;">Borrower's Formal Rebuttal:</strong>
+                            ${escapeHTML(r.borrowerResponse)}
+                          </div>
+                        ` : '<div class="text-xs text-muted" style="margin-top: 6px; font-style: italic;">Borrower has not submitted a rebuttal yet.</div>'}
+                      </div>
+
+                      <div class="flex justify-end gap-2" style="border-top: 1px solid var(--border-subtle); padding-top: var(--space-3);">
+                        <a href="#/requests/${escapeHTML(r.requestId)}" class="btn btn-secondary btn-sm">View Request Details</a>
+                        <button class="btn btn-primary btn-sm resolve-dispute-btn" data-id="${escapeHTML(r.id)}" data-req="${escapeHTML(r.requestId)}" data-borrower="${escapeHTML(r.borrowerId)}">
+                          ${isResolved ? 'Update Decision' : 'Issue Decision'}
+                        </button>
+                        <button class="btn btn-danger btn-sm delete-report-btn" data-id="${escapeHTML(r.id)}">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
               </div>
-              <span class="badge" style="background: rgba(220, 38, 38, 0.15); color: #dc2626; border: 1.5px solid rgba(220, 38, 38, 0.3); font-weight: 700; padding: 4px 10px; border-radius: var(--radius-sm);">
-                ${pendingDisputes} Pending Review
-              </span>
-            </div>
-
-            <!-- Filter Pills Bar -->
-            <div class="admin-glass-filter-bar" style="background: rgba(254, 242, 242, 0.65); border-bottom: 1px solid rgba(254, 202, 202, 0.8);">
-              <button class="rep-filter-btn btn btn-xs ${reportFilter === 'all' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-rep-filter="all">
-                All (${allReports.length})
-              </button>
-              <button class="rep-filter-btn btn btn-xs ${reportFilter === 'pending' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-rep-filter="pending">
-                Pending (${pendingDisputes})
-              </button>
-              <button class="rep-filter-btn btn btn-xs ${reportFilter === 'resolved' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-rep-filter="resolved">
-                Resolved (${allReports.filter(r => r.status === 'resolved').length})
-              </button>
-            </div>
-
-            <!-- Disputes Section Frosted Red Glass Table -->
-            <div class="table-reports-wrap">
-              <table class="table-reports">
-                <thead>
-                  <tr>
-                    <th style="width: 18%;"><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #dc2626; margin-right: 6px;"></span>Dispute & Request</th>
-                    <th style="width: 12%;">Status</th>
-                    <th style="width: 32%;">Owner's Damage Claim</th>
-                    <th style="width: 22%;">Borrower's Rebuttal</th>
-                    <th style="text-align: right; width: 16%;">Admin Decision</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${filteredReports.length === 0 ? `
-                    <tr><td colspan="5" style="padding: var(--space-8); text-align: center; color: #991b1b; font-weight: 500;">No damage reports match the current filter.</td></tr>
-                  ` : filteredReports.map(r => {
-                    const isResolved = r.status === 'resolved';
-                    return `
-                      <tr style="border-bottom: 1px solid rgba(254, 202, 202, 0.5); border-left: 4px solid ${isResolved ? 'var(--color-success)' : 'var(--color-danger)'};">
-                        <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(254, 202, 202, 0.4);">
-                          <div style="font-weight: 700; color: #991b1b;">Dispute #${escapeHTML(r.id)}</div>
-                          <div style="margin-top: 3px; font-size: var(--font-xs);">
-                            Req: <a href="#/requests/${escapeHTML(r.requestId)}" style="color: var(--color-primary); font-weight: 600; text-decoration: underline;">#${escapeHTML(r.requestId)}</a>
-                          </div>
-                          <div class="text-xs text-muted" style="margin-top: 2px;">${new Date(r.createdAt).toLocaleDateString()}</div>
-                        </td>
-                        <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(254, 202, 202, 0.4);">
-                          <span class="badge ${isResolved ? 'badge-status-completed' : 'badge-status-open'}">
-                            ${escapeHTML(r.status ? r.status.toUpperCase() : 'SUBMITTED')}
-                          </span>
-                        </td>
-                        <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(254, 202, 202, 0.4); font-size: var(--font-xs);">
-                          <div style="background: rgba(255, 255, 255, 0.9); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border: 1px solid rgba(254, 202, 202, 0.8); color: #0f172a; line-height: 1.4;">
-                            ${escapeHTML(r.description || 'No description filed')}
-                          </div>
-                        </td>
-                        <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(254, 202, 202, 0.4); font-size: var(--font-xs);">
-                          ${r.borrowerResponse ? `
-                            <div style="background: rgba(240, 253, 244, 0.9); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border: 1px solid #bbf7d0; color: #166534; line-height: 1.4;">
-                              ${escapeHTML(r.borrowerResponse)}
-                            </div>
-                          ` : '<span style="color: #64748b; font-style: italic;">No rebuttal filed</span>'}
-                        </td>
-                        <td style="padding: var(--space-3) var(--space-4); text-align: right; white-space: nowrap;">
-                          <div class="flex gap-1 justify-end flex-wrap items-center">
-                            <a href="#/requests/${escapeHTML(r.requestId)}" class="btn btn-secondary btn-xs glass-btn" style="border: 1px solid rgba(254, 202, 202, 0.8); background: rgba(255, 255, 255, 0.85); color: #991b1b; font-weight: 600;">
-                              Details
-                            </a>
-                            <button class="btn btn-primary btn-xs resolve-dispute-btn" data-id="${escapeHTML(r.id)}" data-req="${escapeHTML(r.requestId)}" data-borrower="${escapeHTML(r.borrowerId)}" style="background: #dc2626; border-color: #b91c1c;">
-                              ${isResolved ? 'Verdict' : 'Decide'}
-                            </button>
-                            <button class="btn btn-danger btn-xs delete-report-btn" data-id="${escapeHTML(r.id)}">
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    `;
-                  }).join('')}
-                </tbody>
-              </table>
-            </div>
+            `}
           </div>
         </div>
       `;
@@ -1170,53 +1109,30 @@ export async function renderAdminDashboardPage(container, { user }) {
     // ==========================================
     else if (activeTab === 'landmarks') {
       tabArea.innerHTML = `
-        <div class="admin-section-glow glow-landmarks">
-          <div class="admin-glass-panel" style="border-top: 3px solid #d97706;">
-            <div class="admin-glass-header flex justify-between items-center flex-wrap gap-2" style="background: rgba(255, 251, 235, 0.85); border-bottom: 1px solid rgba(253, 230, 138, 0.8);">
-              <div class="flex items-center gap-3">
-                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #d97706; box-shadow: 0 0 12px rgba(217, 119, 6, 0.8);"></span>
-                <h2 class="text-lg font-bold" style="color: #92400e; margin: 0; font-size: 1.25rem;">Campus Meeting Landmarks</h2>
-              </div>
-              <button id="add-landmark-btn" class="btn btn-primary btn-sm" style="background: #d97706; border-color: #b45309; box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);">+ Add Landmark</button>
+        <div class="card" style="border-top: 3px solid #d97706;">
+          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+            <div class="flex items-center gap-3">
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #d97706;"></span>
+              <h2 class="text-lg font-bold" style="color: #92400e; margin: 0; font-size: 1.25rem;">Campus Meeting Landmarks</h2>
             </div>
-
-            <!-- Landmarks Section Frosted Amber Glass Table -->
-            <div class="table-landmarks-wrap">
-              <table class="table-landmarks">
-                <thead>
-                  <tr>
-                    <th style="width: 35%;"><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #d97706; margin-right: 6px;"></span>Landmark Name</th>
-                    <th style="width: 25%;"><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #f59e0b; margin-right: 6px;"></span>Category</th>
-                    <th style="width: 25%;">Coordinates</th>
-                    <th style="text-align: right; width: 15%;">Admin Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${landmarks.length === 0 ? `
-                    <tr><td colspan="4" style="padding: var(--space-8); text-align: center; color: #92400e; font-weight: 500;">No meeting landmarks configured.</td></tr>
-                  ` : landmarks.map(lm => `
-                    <tr style="border-bottom: 1px solid rgba(253, 230, 138, 0.5);">
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(253, 230, 138, 0.4);">
-                        <div style="font-weight: 700; color: #92400e; font-size: 0.95rem;">${escapeHTML(lm.name)}</div>
-                        <div class="text-xs" style="color: #64748b; margin-top: 2px;">Campus handover waypoint</div>
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(253, 230, 138, 0.4); font-weight: normal;">
-                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #fde68a; color: #b45309; font-weight: normal;">${escapeHTML(lm.category)}</span>
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(253, 230, 138, 0.4); font-weight: normal;">
-                        <span class="font-mono" style="background: rgba(255, 255, 255, 0.95); border: 1px solid #fde68a; color: #78350f; font-weight: normal; padding: 3px 8px; border-radius: var(--radius-sm);">
-                          Lat: ${lm.lat}, Lng: ${lm.lng}
-                        </span>
-                      </td>
-                      <td style="padding: var(--space-3) var(--space-4); text-align: right; white-space: nowrap;">
-                        <button class="btn btn-danger btn-xs delete-lm-btn" data-id="${escapeHTML(lm.id)}" title="Delete Landmark">
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+            <button id="add-landmark-btn" class="btn btn-primary btn-sm">+ Add Landmark</button>
+          </div>
+          <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3);">
+              ${landmarks.map(lm => `
+                <div class="card" style="padding: var(--space-4); border: 1px solid var(--border-subtle);">
+                  <div class="flex justify-between items-start gap-2">
+                    <h4 class="text-sm font-bold" style="margin: 0;">${escapeHTML(lm.name)}</h4>
+                    <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">${escapeHTML(lm.category)}</span>
+                  </div>
+                  <div class="text-xs text-muted" style="margin-top: var(--space-2); font-family: monospace;">
+                    Lat: ${lm.lat}, Lng: ${lm.lng}
+                  </div>
+                  <div class="flex justify-end gap-1" style="margin-top: var(--space-3); border-top: 1px solid var(--border-subtle); padding-top: var(--space-2);">
+                    <button class="btn btn-danger btn-xs delete-lm-btn" data-id="${escapeHTML(lm.id)}">Delete</button>
+                  </div>
+                </div>
+              `).join('')}
             </div>
           </div>
         </div>
@@ -1327,7 +1243,7 @@ export async function renderAdminDashboardPage(container, { user }) {
       });
     }
 
-    // Main Tab button bindings (Instant 0ms tab switch from cache, background refresh)
+    // Main Tab button bindings
     container.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         activeTab = btn.getAttribute('data-tab');
@@ -1337,7 +1253,6 @@ export async function renderAdminDashboardPage(container, { user }) {
     });
   };
 
-  // Instant 0ms Paint from cache, followed by background parallel refresh
   const cachedUsers = store.getLocalDocs('users');
   if (cachedUsers && cachedUsers.length > 0) {
     await renderContent(true);
