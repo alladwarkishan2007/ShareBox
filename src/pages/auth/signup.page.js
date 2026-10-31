@@ -17,8 +17,11 @@ export async function renderSignupPage(container) {
 
           <form id="signup-form">
             <div class="form-group" style="margin-bottom: var(--space-3);">
-              <label class="form-label" for="signup-name">Full Name <span class="required">*</span></label>
-              <input type="text" id="signup-name" class="form-input" placeholder="Alex Rivers" required autocomplete="name" style="padding: 0.6rem 0.85rem;">
+              <div class="flex justify-between items-center">
+                <label class="form-label" for="signup-name" style="margin-bottom: 0;">Unique Username / Full Name <span class="required" style="color: var(--color-danger); font-weight: bold;">*</span></label>
+                <span class="text-xs text-subtle" style="font-size: 11px;">Must be unique</span>
+              </div>
+              <input type="text" id="signup-name" class="form-input" placeholder="e.g. Alex Rivers or alex_rivers" required autocomplete="name" style="padding: 0.6rem 0.85rem; margin-top: 4px;">
             </div>
 
             <div class="form-group" style="margin-bottom: var(--space-3);">

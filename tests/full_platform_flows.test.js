@@ -36,6 +36,7 @@ async function runFullVerification() {
     const { data: u } = await store.supabase.from('users').select('id').eq('email', email).maybeSingle();
     if (u) {
       await store.supabase.from('notifications').delete().eq('user_id', u.id);
+      await store.supabase.from('notifications').delete().eq('ref_id', u.id);
       await store.supabase.from('requests').delete().eq('requester_id', u.id);
       await store.supabase.from('requests').delete().eq('helper_id', u.id);
       await store.supabase.from('event_members').delete().eq('user_id', u.id);
@@ -263,6 +264,22 @@ async function runFullVerification() {
   const myNotifs = userANotifs.filter(n => n.userId === studentA.uid);
   assert(myNotifs.length > 0, `Student A received ${myNotifs.length} in-app notification alerts`);
   assert(myNotifs.some(n => n.type === 'penalty_imposed'), 'Received penalty imposition alert');
+
+  // Post-test cleanup: delete all test users, requests, events, and their notifications
+  for (const uId of [studentA.uid, studentB.uid, organizer.uid]) {
+    await store.supabase.from('notifications').delete().eq('user_id', uId);
+    await store.supabase.from('notifications').delete().eq('ref_id', uId);
+    await store.supabase.from('requests').delete().eq('requester_id', uId);
+    await store.supabase.from('requests').delete().eq('helper_id', uId);
+    await store.supabase.from('event_members').delete().eq('user_id', uId);
+    await store.supabase.from('events').delete().eq('created_by', uId);
+    await store.supabase.from('damage_reports').delete().eq('owner_id', uId);
+    await store.supabase.from('damage_reports').delete().eq('borrower_id', uId);
+    await store.supabase.from('users').delete().eq('id', uId);
+  }
+  await store.supabase.from('events').delete().eq('id', roboconEventId);
+  await store.supabase.from('requests').delete().eq('id', batteryReqId);
+  await store.supabase.from('calls').delete().eq('id', callDocId);
 
   console.log('\n======================================================');
   console.log(`  ALL TEST SCENARIOS PASSED: ${passed} Passed, ${failed} Failed`);

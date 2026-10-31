@@ -32,6 +32,7 @@ async function runTests() {
     const { data: u } = await store.supabase.from('users').select('id').eq('email', email).maybeSingle();
     if (u) {
       await store.supabase.from('notifications').delete().eq('user_id', u.id);
+      await store.supabase.from('notifications').delete().eq('ref_id', u.id);
       await store.supabase.from('requests').delete().eq('requester_id', u.id);
       await store.supabase.from('requests').delete().eq('helper_id', u.id);
       await store.supabase.from('event_members').delete().eq('user_id', u.id);
@@ -171,6 +172,18 @@ async function runTests() {
   await store.updateDoc('calls', callId, { status: 'ended' });
   const endedCall = await store.getDoc('calls', callId);
   assert(endedCall.status === 'ended', 'Call ended and signaling state marked ended');
+
+  // Post-test cleanup: delete test users and their notifications so admin inbox stays clean
+  for (const uId of [userA.uid, userB.uid]) {
+    await store.supabase.from('notifications').delete().eq('user_id', uId);
+    await store.supabase.from('notifications').delete().eq('ref_id', uId);
+    await store.supabase.from('requests').delete().eq('requester_id', uId);
+    await store.supabase.from('requests').delete().eq('helper_id', uId);
+    await store.supabase.from('event_members').delete().eq('user_id', uId);
+    await store.supabase.from('users').delete().eq('id', uId);
+  }
+  await store.supabase.from('events').delete().eq('id', eventId);
+  await store.supabase.from('calls').delete().eq('id', callId);
 
   console.log(`\n========================================`);
   console.log(`Phase 2 Tests Complete: ${passed} Passed, ${failed} Failed`);

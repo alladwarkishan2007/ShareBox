@@ -28,7 +28,7 @@ export async function renderNotificationsPage(container, { user }) {
             </svg>
             Mark All Read
           </button>
-          <button id="clear-all-notifs-btn" class="btn btn-danger btn-sm glass-btn" style="background: rgba(239, 68, 68, 0.12); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3);" title="Permanently clear all notifications">
+          <button id="clear-all-notifs-btn" class="btn btn-sm" style="background: #dc2626 !important; color: #ffffff !important; border: 1px solid #b91c1c; font-weight: 700; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35); padding: 6px 14px; border-radius: 8px;" title="Permanently clear all notifications">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -242,6 +242,12 @@ export async function renderNotificationsPage(container, { user }) {
           if (approveBtn) approveBtn.disabled = true;
 
           try {
+            // Retrieve candidate email to permanently bar from re-registration
+            const targetUser = await store.getDoc('users', targetUid);
+            if (targetUser?.email) {
+              store.disapproveEmail(targetUser.email);
+            }
+
             await store.updateDoc('users', targetUid, { status: 'rejected' });
 
             await notificationsService.create({
@@ -252,20 +258,31 @@ export async function renderNotificationsPage(container, { user }) {
               refId: null
             });
 
-            await notificationsService.markAsRead(notifId);
-            toast.info('Membership request disapproved.');
+            // Dismiss the notification permanently so it never shows up in admin notifications again
+            await notificationsService.deleteNotification(notifId);
+            toast.info('Member request disapproved. Email permanently barred from registering again.');
 
-            const parentDiv = disapproveBtn.closest('.action-btn-group');
-            if (parentDiv) {
-              parentDiv.innerHTML = `
-                <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #dc2626; font-weight: 700; padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.3);">
-                  ✕ Disapproved
-                </span>
-                <a href="#/admin" class="btn btn-secondary btn-sm glass-btn">
-                  View Directory
-                </a>
-              `;
-            }
+            // Smoothly remove card from UI
+            card.style.transition = 'all 0.3s ease';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+              card.remove();
+              if (listContainer.children.length === 0) {
+                listContainer.innerHTML = `
+                  <div class="glass-empty-card">
+                    <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(37, 99, 235, 0.08); color: var(--color-primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                      </svg>
+                    </div>
+                    <h3 class="text-md font-bold" style="color: var(--text-main); margin-bottom: 4px;">All caught up!</h3>
+                    <p class="text-xs text-muted" style="max-width: 380px; margin: 0 auto;">You have no notifications right now.</p>
+                  </div>
+                `;
+              }
+            }, 300);
           } catch (err) {
             toast.error('Failed to disapprove member: ' + err.message);
             disapproveBtn.disabled = false;

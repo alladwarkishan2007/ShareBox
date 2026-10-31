@@ -4,6 +4,14 @@ import { USER_ROLES } from '../config/constants.js';
 
 class AuthService {
   async signUp({ name, email, password, department, year, phone = '', role = USER_ROLES.MEMBER, status }) {
+    if (!name || !name.trim()) {
+      throw new Error('Username / Full Name is compulsory. Please choose a username.');
+    }
+
+    if (name.trim().length < 2) {
+      throw new Error('Username must be at least 2 characters long.');
+    }
+
     if (!isValidEmail(email)) {
       throw new Error('Please provide a valid email address.');
     }
@@ -58,6 +66,17 @@ class AuthService {
     const filtered = {};
     for (const key of allowedFields) {
       if (data[key] !== undefined) filtered[key] = data[key];
+    }
+    if (filtered.name) {
+      const cleanName = filtered.name.trim();
+      if (cleanName.length < 2) {
+        throw new Error('Username must be at least 2 characters long.');
+      }
+      const allUsers = await store.getDocs('users');
+      const conflict = allUsers.find(u => (u.uid || u.id) !== uid && u.name && u.name.trim().toLowerCase() === cleanName.toLowerCase());
+      if (conflict) {
+        throw new Error(`The username "${cleanName}" is already taken. Please choose another username.`);
+      }
     }
     await store.updateDoc('users', uid, filtered);
   }

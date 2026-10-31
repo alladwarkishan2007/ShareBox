@@ -30,12 +30,14 @@ async function testApprovalFlow() {
   console.log('   SHAREBOX NEW USER APPROVAL WORKFLOW TEST           ');
   console.log('======================================================\n');
 
-  const testEmail = 'pending.applicant.' + Math.random().toString(36).substring(2, 7) + '@dyp.edu';
+  const testSuffix = Math.random().toString(36).substring(2, 7);
+  const testEmail = 'pending.applicant.' + testSuffix + '@dyp.edu';
+  const testName = 'Priya Sharma ' + testSuffix;
 
   // Step 1: User signs up
   console.log('[Step 1] New User Signup');
   const newUser = await authService.signUp({
-    name: 'Priya Sharma',
+    name: testName,
     email: testEmail,
     password: 'password123',
     department: 'Computer Science & Engineering',
@@ -123,6 +125,36 @@ async function testApprovalFlow() {
   await notificationsService.clearAll(rejectApplicant.uid);
   const clearedNotifs = (await store.getDocs('notifications')).filter(n => n.userId === rejectApplicant.uid);
   assert(clearedNotifs.length === 0, 'clearAll successfully removed all user notifications');
+
+  // Step 6: Unique Username & Disapproved Email Blocking
+  console.log('\n[Step 6] Unique Username Policy & Disapproved Email Blocking');
+  let duplicateNameBlocked = false;
+  try {
+    await authService.signUp({
+      name: testName,
+      email: 'unique.' + Math.random().toString(36).substring(2, 7) + '@dyp.edu',
+      password: 'password123',
+      department: 'Computer Science & Engineering',
+      year: '2nd Year'
+    });
+  } catch (err) {
+    if (err.message && err.message.includes('already taken')) duplicateNameBlocked = true;
+  }
+  assert(duplicateNameBlocked, 'Duplicate username registration rejected by Unique Username policy');
+
+  let barredEmailBlocked = false;
+  try {
+    await authService.signUp({
+      name: 'Brand New User ' + Math.random().toString(36).substring(2, 6),
+      email: rejectApplicant.email,
+      password: 'password123',
+      department: 'Mechanical Engineering',
+      year: '1st Year'
+    });
+  } catch (err) {
+    if (err.message && (err.message.includes('disapproved') || err.message.includes('already exists'))) barredEmailBlocked = true;
+  }
+  assert(barredEmailBlocked, 'Disapproved email is barred from signing up again');
 
   // Cleanup test users
   await store.supabase.from('notifications').delete().eq('ref_id', newUser.uid);

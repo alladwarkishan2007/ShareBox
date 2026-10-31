@@ -242,20 +242,74 @@ export const store = {
     }
 
     const cleanEmail = userData.email.trim().toLowerCase();
+    const cleanName = (userData.name || '').trim();
 
-    // Check if user already exists in Supabase
+    if (!cleanName || cleanName.length < 2) {
+      throw new Error('Username must be at least 2 characters long.');
+    }
+
+    // 1. Check local blacklisted/disapproved emails list
+    if (isBrowser) {
+      try {
+        const disapprovedList = JSON.parse(localStorage.getItem('sharebox_disapproved_emails') || '[]');
+        if (disapprovedList.includes(cleanEmail)) {
+          throw new Error('This email has been disapproved by the campus administrator and is barred from registering.');
+        }
+      } catch (e) {
+        if (e.message && e.message.includes('disapproved')) throw e;
+      }
+    }
+
+    // 2. Check if user email or username already exists in Supabase
     try {
-      const { data: existing } = await supabase
+      const { data: existingEmail } = await supabase
         .from('users')
         .select('*')
         .eq('email', cleanEmail)
         .maybeSingle();
 
-      if (existing) {
+      if (existingEmail) {
+        if (existingEmail.status === 'rejected') {
+          throw new Error('This email has been disapproved by the campus administrator and is barred from registering.');
+        }
+        if (existingEmail.status === 'blocked') {
+          throw new Error('This account has been blocked by college administration.');
+        }
         throw new Error('An account with this email already exists.');
       }
+
+      // Unique Username Policy: Check if username is already taken
+      const { data: existingName } = await supabase
+        .from('users')
+        .select('id, name')
+        .ilike('name', cleanName)
+        .maybeSingle();
+
+      if (existingName) {
+        throw new Error(`The username "${cleanName}" is already taken. Please choose a different username.`);
+      }
     } catch (e) {
-      if (e.message && e.message.includes('already exists')) throw e;
+      if (e.message && (e.message.includes('already exists') || e.message.includes('already taken') || e.message.includes('disapproved') || e.message.includes('blocked'))) {
+        throw e;
+      }
+    }
+
+    // 3. Fallback check against local cache
+    const localUsers = Object.values(getLocalTable('users'));
+    const localEmailMatch = localUsers.find(u => u.email && u.email.toLowerCase() === cleanEmail);
+    if (localEmailMatch) {
+      if (localEmailMatch.status === 'rejected') {
+        throw new Error('This email has been disapproved by the campus administrator and is barred from registering.');
+      }
+      if (localEmailMatch.status === 'blocked') {
+        throw new Error('This account has been blocked by college administration.');
+      }
+      throw new Error('An account with this email already exists.');
+    }
+
+    const localNameMatch = localUsers.find(u => u.name && u.name.trim().toLowerCase() === cleanName.toLowerCase());
+    if (localNameMatch) {
+      throw new Error(`The username "${cleanName}" is already taken. Please choose a different username.`);
     }
 
     const uid = 'usr_' + Math.random().toString(36).substring(2, 9);
@@ -584,6 +638,21 @@ export const store = {
 
     table[docId] = { ...table[docId], ...data, updatedAt: new Date().toISOString() };
     setLocalTable(colName, table, true);
+
+    // If a user account was disapproved/rejected, blacklist email permanently from registering again
+    if (colName === 'users' && data.status === 'rejected') {
+      const rejectedUser = table[docId];
+      if (rejectedUser?.email && isBrowser) {
+        try {
+          const clean = rejectedUser.email.trim().toLowerCase();
+          const list = JSON.parse(localStorage.getItem('sharebox_disapproved_emails') || '[]');
+          if (!list.includes(clean)) {
+            list.push(clean);
+            localStorage.setItem('sharebox_disapproved_emails', JSON.stringify(list));
+          }
+        } catch (e) {}
+      }
+    }
 
     // If a user account was approved, send approval notification
     if (colName === 'users' && data.status === 'approved' && prevStatus !== 'approved') {
