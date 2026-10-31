@@ -4,13 +4,18 @@ import path from 'path';
 const distDir = path.resolve('dist');
 
 if (fs.existsSync(distDir)) {
-  // 1. Create 404.html for GitHub Pages SPA routing
+  // 1. Create 404.html for SPA routing fallback and _redirects for Netlify
   const indexHtml = path.join(distDir, 'index.html');
   const notFoundHtml = path.join(distDir, '404.html');
+  const redirectsFile = path.join(distDir, '_redirects');
+
   if (fs.existsSync(indexHtml)) {
     fs.copyFileSync(indexHtml, notFoundHtml);
     console.log('[Postbuild] Created dist/404.html');
   }
+
+  fs.writeFileSync(redirectsFile, '/*    /index.html   200\n');
+  console.log('[Postbuild] Created dist/_redirects for Netlify');
 
   // 2. Compatibility aliases for cached bundles
   const assetsDir = path.join(distDir, 'assets');
