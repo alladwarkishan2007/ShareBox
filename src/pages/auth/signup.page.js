@@ -126,8 +126,12 @@ export async function renderSignupPage(container) {
     submitBtn.textContent = 'Creating account...';
 
     try {
-      await authService.signUp({ name, email, password, department, year, phone });
-      toast.success('Account created successfully! Welcome to ShareBox.');
+      const created = await authService.signUp({ name, email, password, department, year, phone });
+      if (created && created.status === 'pending') {
+        toast.info('Registration submitted! Membership approval request sent to administrator.');
+      } else {
+        toast.success('Account created successfully! Welcome to ShareBox.');
+      }
       window.location.hash = '#/dashboard';
     } catch (err) {
       toast.error(err);

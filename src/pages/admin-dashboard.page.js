@@ -1,6 +1,7 @@
 import { store } from '../services/store.js';
 import { locationService } from '../services/location.service.js';
 import { reportsService } from '../services/reports.service.js';
+import { notificationsService } from '../services/notifications.service.js';
 import { modal } from '../components/modal.js';
 import { toast } from '../components/toast.js';
 import { escapeHTML } from '../utils/sanitize.js';
@@ -8,7 +9,7 @@ import { isValidEmail } from '../utils/validators.js';
 
 export async function renderAdminDashboardPage(container, { user }) {
   let activeTab = 'users'; // 'users' | 'requests' | 'events' | 'reports' | 'landmarks' | 'system'
-  let userFilter = 'all'; // 'all' | 'pending' | 'approved' | 'admins' | 'restricted'
+  let userFilter = 'approved'; // 'approved' | 'pending' | 'admins' | 'restricted' | 'all'
   let userSearchTerm = '';
   let showAllPasswords = false;
   let reqFilter = 'all'; // 'all' | 'open' | 'accepted' | 'completed'
@@ -25,6 +26,8 @@ export async function renderAdminDashboardPage(container, { user }) {
     const completedReqs = allRequests.filter(r => r.status === 'completed').length;
     const openReqs = allRequests.filter(r => r.status === 'open').length;
     const completionRate = totalReqs > 0 ? Math.round((completedReqs / totalReqs) * 100) : 100;
+    const pendingUsers = allUsers.filter(u => u.status === 'pending');
+    const approvedUsers = allUsers.filter(u => u.status === 'approved' || (!u.status && u.role === 'admin'));
     const staffUsers = allUsers.filter(u => ['admin', 'organizer'].includes(u.role)).length;
     const restrictedUsers = allUsers.filter(u => u.status === 'blocked' || (u.restrictedUntil && new Date(u.restrictedUntil) > new Date())).length;
     const pendingDisputes = allReports.filter(r => r.status !== 'resolved').length;
@@ -45,7 +48,7 @@ export async function renderAdminDashboardPage(container, { user }) {
         <!-- Navigation Tabs with Distinct Section Colors -->
         <div class="flex gap-3 flex-wrap items-center" style="border-bottom: 2px solid var(--border-subtle); padding-bottom: var(--space-4); margin-bottom: var(--space-6);">
           <button class="tab-btn btn ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}" data-tab="users" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'users' ? 'background: #2563eb; color: #ffffff; border-color: #2563eb; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);' : 'background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;'}">
-            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'users' ? '#ffffff' : '#2563eb'}; margin-right: 6px;"></span>Users (${allUsers.length})
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'users' ? '#ffffff' : '#2563eb'}; margin-right: 6px;"></span>Users (${approvedUsers.length})${pendingUsers.length > 0 ? ` <span class="badge" style="background: #f59e0b; color: #ffffff; font-size: 11px; padding: 2px 6px; border-radius: 10px; margin-left: 6px;">${pendingUsers.length} pending</span>` : ''}
           </button>
           <button class="tab-btn btn ${activeTab === 'requests' ? 'btn-primary' : 'btn-secondary'}" data-tab="requests" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'requests' ? 'background: #059669; color: #ffffff; border-color: #059669; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);' : 'background: #ecfdf5; color: #047857; border-color: #a7f3d0;'}">
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'requests' ? '#ffffff' : '#059669'}; margin-right: 6px;"></span>Requests (${allRequests.length})
@@ -84,6 +87,18 @@ export async function renderAdminDashboardPage(container, { user }) {
     // ==========================================
     if (activeTab === 'users') {
       tabArea.innerHTML = `
+        ${pendingUsers.length > 0 ? `
+          <div style="background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: var(--radius-md); padding: var(--space-3) var(--space-5); margin-bottom: var(--space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <span style="font-weight: 700; color: #92400e;">⚠️ ${pendingUsers.length} Membership Request${pendingUsers.length > 1 ? 's' : ''} Awaiting Approval:</span>
+              <span class="text-xs" style="color: #b45309; margin-left: 6px;">New users must be approved by an administrator before they are added to the active user directory.</span>
+            </div>
+            <button id="quick-review-pending-btn" class="btn btn-xs" style="background: #f59e0b; color: white; font-weight: 700; border: none; padding: 5px 12px; cursor: pointer; border-radius: var(--radius-sm);">
+              Review Pending (${pendingUsers.length})
+            </button>
+          </div>
+        ` : ''}
+
         <div class="card" style="border-top: 3px solid #2563eb;">
           <div class="card-header flex justify-between items-center flex-wrap gap-3" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
             <div class="flex items-center gap-3">
@@ -103,14 +118,20 @@ export async function renderAdminDashboardPage(container, { user }) {
 
           <!-- Quick Filters Bar -->
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle);">
-            <button class="user-filter-chip btn btn-xs ${userFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-filter="all">
-              All (${allUsers.length})
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'approved' ? 'btn-primary' : 'btn-secondary'}" data-filter="approved">
+              Active Directory (${approvedUsers.length})
+            </button>
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'pending' ? 'btn-primary' : 'btn-secondary'}" data-filter="pending" style="${pendingUsers.length > 0 ? 'border: 1.5px solid #f59e0b; color: #92400e; font-weight: 700;' : ''}">
+              Pending Approvals (${pendingUsers.length})
             </button>
             <button class="user-filter-chip btn btn-xs ${userFilter === 'admins' ? 'btn-primary' : 'btn-secondary'}" data-filter="admins">
               Admins & Organizers (${staffUsers})
             </button>
             <button class="user-filter-chip btn btn-xs ${userFilter === 'restricted' ? 'btn-primary' : 'btn-secondary'}" data-filter="restricted">
               Restricted (${restrictedUsers})
+            </button>
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-filter="all">
+              All Accounts (${allUsers.length})
             </button>
             <span id="user-count-badge" class="text-xs text-muted" style="margin-left: auto;">
               Loading...
@@ -175,25 +196,26 @@ export async function renderAdminDashboardPage(container, { user }) {
         tbody.innerHTML = usersList.map((u, idx) => {
           const uid = u.uid || u.id;
           const pwd = u.password || 'password123';
+          const isPending = u.status === 'pending';
           const isBlocked = u.status === 'blocked';
           const isRestricted = u.restrictedUntil && new Date(u.restrictedUntil) > new Date();
           const isNew = u.createdAt && (Date.now() - new Date(u.createdAt).getTime() < 48 * 3600 * 1000);
 
-          const rowBg = isBlocked ? '#fff5f5' : 'transparent';
-          const rowBorderLeft = isBlocked ? '3px solid var(--color-danger)' : '3px solid transparent';
+          const rowBg = isPending ? '#fffdf5' : isBlocked ? '#fff5f5' : 'transparent';
+          const rowBorderLeft = isPending ? '3px solid #f59e0b' : isBlocked ? '3px solid var(--color-danger)' : '3px solid transparent';
 
           return `
             <tr style="background: ${rowBg}; border-left: ${rowBorderLeft}; border-bottom: 1px solid var(--border-subtle);">
               <!-- Member Profile -->
               <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle); background: #fbfdff;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <div style="width: 32px; height: 32px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0; border: 1.5px solid #bfdbfe;">
+                  <div style="width: 32px; height: 32px; border-radius: 50%; background: ${isPending ? '#fef3c7' : '#dbeafe'}; color: ${isPending ? '#b45309' : '#1d4ed8'}; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0; border: 1.5px solid ${isPending ? '#fde68a' : '#bfdbfe'};">
                     ${escapeHTML((u.name || u.email || 'M')[0].toUpperCase())}
                   </div>
                   <div>
                     <div style="font-weight: var(--fw-semibold); display: flex; align-items: center; gap: 6px; color: #1e3a8a;">
                       ${escapeHTML(u.name || 'Member')}
-                      ${isNew ? `<span class="badge" style="background: var(--color-success); color: white; font-size: 9px; padding: 1px 4px;">NEW</span>` : ''}
+                      ${isPending ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 9px; padding: 1px 5px;">REQUEST</span>` : isNew ? `<span class="badge" style="background: var(--color-success); color: white; font-size: 9px; padding: 1px 4px;">NEW</span>` : ''}
                     </div>
                     <div class="text-xs text-muted">${escapeHTML(u.phone || 'No phone')}</div>
                   </div>
@@ -232,9 +254,13 @@ export async function renderAdminDashboardPage(container, { user }) {
                 </button>
               </td>
 
-              <!-- Status Badge (Active vs Blocked) -->
+              <!-- Status Badge (Pending vs Active vs Blocked) -->
               <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
-                ${isBlocked ? `
+                ${isPending ? `
+                  <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; border: 1px solid #fde68a;">
+                    <span class="status-dot status-dot-warning" style="background: #f59e0b;"></span> Pending
+                  </span>
+                ` : isBlocked ? `
                   <span class="badge" style="background: #fee2e2; color: #991b1b;">
                     <span class="status-dot status-dot-danger"></span> Blocked
                   </span>
@@ -249,6 +275,11 @@ export async function renderAdminDashboardPage(container, { user }) {
               <!-- Action Buttons -->
               <td style="padding: var(--space-3) var(--space-4); text-align: right; white-space: nowrap;">
                 <div class="flex gap-1 justify-end flex-wrap items-center">
+                  ${isPending ? `
+                    <button class="btn btn-success btn-xs approve-user-btn" data-uid="${escapeHTML(uid)}" title="Approve Membership and add to Active Directory" style="font-weight: 700; background: #16a34a; color: white;">
+                      ✓ Approve
+                    </button>
+                  ` : ''}
                   <button class="btn btn-secondary btn-xs edit-user-btn" data-uid="${escapeHTML(uid)}" title="Edit User & Credentials">
                     Edit
                   </button>
@@ -283,6 +314,8 @@ export async function renderAdminDashboardPage(container, { user }) {
       const filterUsers = () => {
         return allUsers.filter(u => {
           // Status/role filter
+          if (userFilter === 'approved' && u.status !== 'approved' && !(u.role === 'admin')) return false;
+          if (userFilter === 'pending' && u.status !== 'pending') return false;
           if (userFilter === 'admins' && !['admin', 'organizer'].includes(u.role)) return false;
           if (userFilter === 'restricted' && u.status !== 'blocked' && !(u.restrictedUntil && new Date(u.restrictedUntil) > new Date())) return false;
 
@@ -298,6 +331,19 @@ export async function renderAdminDashboardPage(container, { user }) {
           );
         });
       };
+
+      // Quick Review Pending Banner Button Handler
+      const quickPendingBtn = tabArea.querySelector('#quick-review-pending-btn');
+      if (quickPendingBtn) {
+        quickPendingBtn.addEventListener('click', () => {
+          userFilter = 'pending';
+          tabArea.querySelectorAll('.user-filter-chip').forEach(c => {
+            const isTarget = c.getAttribute('data-filter') === 'pending';
+            c.className = `user-filter-chip btn btn-xs ${isTarget ? 'btn-primary' : 'btn-secondary'}`;
+          });
+          renderUserTableRows(filterUsers());
+        });
+      }
 
       // Smooth search listener: never re-renders the input element!
       if (searchInput) {
@@ -339,6 +385,33 @@ export async function renderAdminDashboardPage(container, { user }) {
 
       // Attach row-level listeners (called whenever rows are rendered)
       const attachUserRowListeners = () => {
+        // Approve User
+        tbody.querySelectorAll('.approve-user-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const uid = btn.getAttribute('data-uid');
+            const target = allUsers.find(u => (u.uid || u.id) === uid);
+            btn.disabled = true;
+            btn.textContent = 'Approving...';
+            try {
+              await store.updateDoc('users', uid, { status: 'approved' });
+              await notificationsService.create({
+                userId: uid,
+                type: 'account_approved',
+                title: 'Membership Approved!',
+                message: 'Your ShareBox account has been approved by the platform administrator. You now have full access to the campus equipment directory and requests.',
+                refId: null
+              });
+              toast.success(`Approved ${target?.name || 'Member'}! Added to Active User Directory.`);
+              if (target) target.status = 'approved';
+              renderContent();
+            } catch (err) {
+              toast.error('Failed to approve member: ' + err.message);
+              btn.disabled = false;
+              btn.textContent = '✓ Approve';
+            }
+          });
+        });
+
         // Individual Password Toggle
         tbody.querySelectorAll('.toggle-single-pwd-btn').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -481,7 +554,8 @@ export async function renderAdminDashboardPage(container, { user }) {
                   <div class="form-group flex-1">
                     <label class="form-label" for="edit-status">Status</label>
                     <select id="edit-status" class="form-select">
-                      <option value="approved" ${target.status !== 'blocked' ? 'selected' : ''}>Active</option>
+                      <option value="approved" ${target.status === 'approved' ? 'selected' : ''}>Active (Approved)</option>
+                      <option value="pending" ${target.status === 'pending' ? 'selected' : ''}>Pending Approval</option>
                       <option value="blocked" ${target.status === 'blocked' ? 'selected' : ''}>Blocked</option>
                     </select>
                   </div>

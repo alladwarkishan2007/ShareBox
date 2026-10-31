@@ -1,6 +1,7 @@
 import { toast } from './components/toast.js';
 import { isUserApproved, isUserOrganizer, isUserAdmin } from './utils/guards.js';
 import { renderNavbar } from './components/navbar.js';
+import { store } from './services/store.js';
 
 class Router {
   constructor() {
@@ -114,6 +115,63 @@ class Router {
     if (routeDef.requiresAuth && this.userData?.status === 'blocked') {
       toast.error('Your account has been blocked by college administration.');
       this.navigate('#/login');
+      return;
+    }
+
+    // Guard 3.5: Pending Approval Check
+    if (routeDef.requiresAuth && routeDef.allowPending === false && this.userData?.status === 'pending' && !isUserAdmin(this.userData)) {
+      this.appContainer.innerHTML = `
+        <div class="container empty-state" style="max-width: 580px; padding-top: var(--space-8); text-align: center;">
+          <div style="width: 64px; height: 64px; border-radius: 50%; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <h2 class="text-xl font-bold" style="color: #92400e;">Membership Approval Pending</h2>
+          <p class="text-sm text-muted" style="margin-top: 8px; line-height: 1.5;">
+            Your account has been registered and is awaiting administrator approval. You will be added to the campus directory as soon as an admin approves your request.
+          </p>
+          <div style="margin-top: 24px;" class="flex gap-2 justify-center flex-wrap">
+            <button id="pending-check-status-btn" class="btn btn-primary btn-sm">
+              Check Status
+            </button>
+            <a href="#/profile" class="btn btn-secondary btn-sm">View Profile</a>
+            <button id="pending-logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
+          </div>
+        </div>
+      `;
+
+      const checkBtn = this.appContainer.querySelector('#pending-check-status-btn');
+      if (checkBtn) {
+        checkBtn.addEventListener('click', async () => {
+          checkBtn.disabled = true;
+          checkBtn.textContent = 'Checking...';
+          try {
+            const fresh = await store.getDoc('users', this.currentUser.uid);
+            if (fresh && fresh.status === 'approved') {
+              this.userData = fresh;
+              toast.success('Your membership has been approved! Welcome to ShareBox.');
+              this.handleRoute();
+            } else {
+              toast.info('Your membership request is still awaiting administrator approval.');
+              checkBtn.disabled = false;
+              checkBtn.textContent = 'Check Status';
+            }
+          } catch (e) {
+            checkBtn.disabled = false;
+            checkBtn.textContent = 'Check Status';
+          }
+        });
+      }
+
+      const logoutBtn = this.appContainer.querySelector('#pending-logout-btn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+          window.dispatchEvent(new CustomEvent('sharebox:logout'));
+        });
+      }
+
       return;
     }
 

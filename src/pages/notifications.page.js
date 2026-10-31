@@ -1,4 +1,5 @@
 import { notificationsService } from '../services/notifications.service.js';
+import { store } from '../services/store.js';
 import { formatRelativeTime } from '../utils/dates.js';
 import { escapeHTML } from '../utils/sanitize.js';
 import { toast } from '../components/toast.js';
@@ -82,9 +83,14 @@ export async function renderNotificationsPage(container, { user }) {
                 Go to Feed
               </a>
             ` : n.type === 'new_user_registration' ? `
-              <a href="#/admin" class="btn btn-primary btn-sm notif-link" data-id="${escapeHTML(n.id)}">
-                View in Directory
-              </a>
+              <div class="flex gap-2 items-center flex-wrap justify-end">
+                <button class="btn btn-success btn-sm approve-member-btn" data-uid="${escapeHTML(n.refId || '')}" data-notif-id="${escapeHTML(n.id)}" style="background: #16a34a; color: white; font-weight: 700;">
+                  ✓ Approve
+                </button>
+                <a href="#/admin" class="btn btn-secondary btn-sm notif-link" data-id="${escapeHTML(n.id)}">
+                  Directory
+                </a>
+              </div>
             ` : n.refId ? `
               <a href="#/requests/${escapeHTML(n.refId)}" class="btn btn-secondary btn-sm notif-link" data-id="${escapeHTML(n.id)}">
                 View
@@ -98,6 +104,51 @@ export async function renderNotificationsPage(container, { user }) {
           </div>
         </div>
       `;
+
+      const approveBtn = card.querySelector('.approve-member-btn');
+      if (approveBtn) {
+        approveBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const targetUid = approveBtn.getAttribute('data-uid');
+          const notifId = approveBtn.getAttribute('data-notif-id');
+          if (!targetUid) return;
+
+          approveBtn.disabled = true;
+          approveBtn.textContent = 'Approving...';
+
+          try {
+            await store.updateDoc('users', targetUid, { status: 'approved' });
+
+            await notificationsService.create({
+              userId: targetUid,
+              type: 'account_approved',
+              title: 'Membership Approved!',
+              message: 'Your ShareBox account has been approved by the campus administrator. You are now an active member and can participate in equipment sharing.',
+              refId: null
+            });
+
+            await notificationsService.markAsRead(notifId);
+            toast.success('Member approved! Added to active user directory.');
+
+            const parentDiv = approveBtn.parentElement;
+            if (parentDiv) {
+              parentDiv.innerHTML = `
+                <span class="badge" style="background: #ecfdf5; color: #047857; font-weight: 700; padding: 4px 10px; border: 1px solid #a7f3d0;">
+                  ✓ Approved
+                </span>
+                <a href="#/admin" class="btn btn-secondary btn-sm">
+                  View Directory
+                </a>
+              `;
+            }
+          } catch (err) {
+            toast.error('Failed to approve member: ' + err.message);
+            approveBtn.disabled = false;
+            approveBtn.textContent = '✓ Approve';
+          }
+        });
+      }
 
       const viewLink = card.querySelector('.notif-link');
       if (viewLink) {

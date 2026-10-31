@@ -257,7 +257,8 @@ export const store = {
     }
 
     const uid = 'usr_' + Math.random().toString(36).substring(2, 9);
-    const status = userData.role === 'admin' ? 'approved' : 'approved';
+    // New users start as pending approval until an admin approves them
+    const status = (userData.role === 'admin' || cleanEmail === 'admin@dyp.edu' || cleanEmail.startsWith('admin@') || userData.status === 'approved') ? 'approved' : 'pending';
 
     const dbUserPayload = {
       id: uid,
@@ -300,19 +301,23 @@ export const store = {
         ? adminUsers.map(u => u.id)
         : ['usr_admin'];
 
+      const localNotifs = getLocalTable('notifications');
       for (const aUid of adminUids) {
         const nId = 'notif_' + Math.random().toString(36).substring(2, 9);
-        await supabase.from('notifications').insert({
+        const notifPayload = {
           id: nId,
           user_id: aUid,
           type: 'new_user_registration',
           ref_id: newUser.uid,
-          title: `New User Registration: ${newUser.name}`,
-          message: `${newUser.name} (${newUser.email}) just signed up from ${newUser.department || 'Campus'} (${newUser.year || 'Student'}). Profile & credentials are now visible in the Admin Directory.`,
+          title: `New Member Request: ${newUser.name}`,
+          message: `${newUser.name} (${newUser.email}) wants to become a member of ShareBox from ${newUser.department || 'Campus'} (${newUser.year || 'Student'}). Review and approve membership request.`,
           read: false,
           created_at: new Date().toISOString()
-        });
+        };
+        await supabase.from('notifications').insert(notifPayload);
+        localNotifs[nId] = fromDB('notifications', notifPayload);
       }
+      setLocalTable('notifications', localNotifs);
     } catch (e) {
       console.warn('[Supabase] Admin notif notice:', e);
     }

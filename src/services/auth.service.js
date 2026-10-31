@@ -3,7 +3,7 @@ import { isValidEmail, validatePassword } from '../utils/validators.js';
 import { USER_ROLES } from '../config/constants.js';
 
 class AuthService {
-  async signUp({ name, email, password, department, year, phone = '', role = USER_ROLES.MEMBER }) {
+  async signUp({ name, email, password, department, year, phone = '', role = USER_ROLES.MEMBER, status }) {
     if (!isValidEmail(email)) {
       throw new Error('Please provide a valid email address.');
     }
@@ -20,7 +20,8 @@ class AuthService {
       year: year.trim(),
       phone: phone.trim(),
       photoURL: '',
-      role
+      role,
+      ...(status ? { status } : {})
     };
 
     return await store.signUp(userData, password);

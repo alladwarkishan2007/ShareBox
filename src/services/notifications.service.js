@@ -9,7 +9,7 @@ class NotificationsService {
       id,
       userId,
       type,
-      refId,
+      refId: refId || null,
       title: title.trim(),
       message: message.trim(),
       read: false,
@@ -29,6 +29,10 @@ class NotificationsService {
     }
 
     return notif;
+  }
+
+  async create({ userId, type, refId, title, message }) {
+    return this.notifyUser(userId, { type, refId, title, message });
   }
 
   async markAsRead(notificationId) {
