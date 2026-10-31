@@ -93,7 +93,7 @@ sharebox/
 
 ---
 
-## 🔒 Security Design Highlights
+##  Security Design Highlights
 - **Strict Content Sanitization**: All user-provided strings are sanitized through `escapeHTML` to prevent Cross-Site Scripting (XSS).
 - **No Unsafe InnerHTML**: Template strings avoid raw user interpolation.
 - **Firestore Security Rules**: Field-level validation, enforced status transitions, participant-only chat/call access, and ban enforcement.
