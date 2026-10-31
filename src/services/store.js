@@ -698,19 +698,25 @@ export const store = {
       try { callback(initialFiltered); } catch (e) {}
     }
 
-    // 2. Controlled Background Revalidation with Debounce (no hammering!)
+    // 2. Controlled Background Revalidation with Throttle & Debounce (prevents hammering/loops)
     let debounceTimer = null;
     let isFetching = false;
     let rerunRequested = false;
+    let lastFetchTime = 0;
+    const MIN_INTERVAL_MS = 1500; // Minimum 1.5 seconds between repeated network fetches
 
     const run = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
+      const timeSinceLast = Date.now() - lastFetchTime;
+      const delay = timeSinceLast < MIN_INTERVAL_MS ? (MIN_INTERVAL_MS - timeSinceLast) : 100;
+
       debounceTimer = setTimeout(async () => {
         if (isFetching) {
           rerunRequested = true;
           return;
         }
         isFetching = true;
+        lastFetchTime = Date.now();
         try {
           const items = await this.getDocs(colName);
           let filtered = items;
@@ -725,7 +731,7 @@ export const store = {
             run();
           }
         }
-      }, 50);
+      }, delay);
     };
 
     // Run background fetch to get latest from Supabase
