@@ -6,27 +6,50 @@ import { toast } from '../components/toast.js';
 
 export async function renderNotificationsPage(container, { user }) {
   container.innerHTML = `
-    <div class="container" style="max-width: 680px; padding-top: var(--space-6);">
-      <div class="flex justify-between items-center" style="margin-bottom: var(--space-6);">
+    <div class="container glass-container" style="max-width: 720px; padding-top: var(--space-6); padding-bottom: var(--space-8);">
+      <div class="glass-header-box flex justify-between items-center gap-4 flex-wrap">
         <div>
-          <h1 class="text-xl font-bold">In-App Notifications</h1>
-          <p class="text-sm text-muted">Real-time alerts for accepted requests, messages, handovers, and disputes.</p>
+          <div class="flex items-center gap-2">
+            <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(37, 99, 235, 0.12); color: var(--color-primary); display: flex; align-items: center; justify-content: center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+            </div>
+            <h1 class="text-xl font-bold" style="margin: 0;">In-App Notifications</h1>
+          </div>
+          <p class="text-xs text-muted" style="margin-top: 4px; margin-bottom: 0;">Real-time alerts for member requests, handovers, messages, and campus coordination.</p>
         </div>
-        <button id="mark-all-read-btn" class="btn btn-secondary btn-sm">
-          Mark All as Read
-        </button>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <button id="mark-all-read-btn" class="btn btn-secondary btn-sm glass-btn" title="Mark all notifications as read">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Mark All Read
+          </button>
+          <button id="clear-all-notifs-btn" class="btn btn-danger btn-sm glass-btn" style="background: rgba(239, 68, 68, 0.12); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3);" title="Permanently clear all notifications">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            Clear All
+          </button>
+        </div>
       </div>
 
       <div id="notifications-list" class="flex flex-col gap-3">
-        <div class="skeleton" style="height: 80px;"></div>
-        <div class="skeleton" style="height: 80px;"></div>
+        <div class="skeleton" style="height: 80px; border-radius: var(--radius-lg);"></div>
+        <div class="skeleton" style="height: 80px; border-radius: var(--radius-lg);"></div>
       </div>
     </div>
   `;
 
   const listContainer = container.querySelector('#notifications-list');
   const markAllBtn = container.querySelector('#mark-all-read-btn');
+  const clearAllBtn = container.querySelector('#clear-all-notifs-btn');
 
+  // Mark all as read listener
   markAllBtn.addEventListener('click', async () => {
     try {
       markAllBtn.disabled = true;
@@ -37,22 +60,54 @@ export async function renderNotificationsPage(container, { user }) {
       toast.error(e.message);
     } finally {
       markAllBtn.disabled = false;
-      markAllBtn.textContent = 'Mark All as Read';
+      markAllBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        Mark All Read
+      `;
     }
   });
 
+  // Clear all notifications listener
+  clearAllBtn.addEventListener('click', async () => {
+    const confirmed = window.confirm('Are you sure you want to clear all your notifications? This cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      clearAllBtn.disabled = true;
+      clearAllBtn.textContent = 'Clearing...';
+      await notificationsService.clearAll(user.uid);
+      toast.success('All notifications cleared.');
+    } catch (e) {
+      toast.error('Failed to clear notifications: ' + e.message);
+    } finally {
+      clearAllBtn.disabled = false;
+      clearAllBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        Clear All
+      `;
+    }
+  });
+
+  // Subscribe to live notification updates
   notificationsService.subscribeNotifications(user.uid, (notifs) => {
     listContainer.innerHTML = '';
 
     if (notifs.length === 0) {
       listContainer.innerHTML = `
-        <div class="card empty-state">
-          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-          <h3 class="text-md font-bold">No notifications yet</h3>
-          <p class="text-xs text-muted">You will receive alerts here when other students interact with your requests.</p>
+        <div class="glass-empty-card">
+          <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(37, 99, 235, 0.08); color: var(--color-primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </div>
+          <h3 class="text-md font-bold" style="color: var(--text-main); margin-bottom: 4px;">All caught up!</h3>
+          <p class="text-xs text-muted" style="max-width: 380px; margin: 0 auto;">You have no notifications right now. New activity and updates will appear here in real time.</p>
         </div>
       `;
       return;
@@ -60,51 +115,66 @@ export async function renderNotificationsPage(container, { user }) {
 
     notifs.forEach(n => {
       const card = document.createElement('div');
-      card.className = 'card';
-      if (!n.read) {
-        card.style.borderLeft = '4px solid var(--color-primary)';
-        card.style.backgroundColor = 'var(--color-primary-light)';
-      }
+      card.className = `card glass-card ${!n.read ? 'glass-card-unread' : ''}`;
 
       card.innerHTML = `
         <div class="card-body flex justify-between items-start gap-4">
           <div class="flex-1">
-            <div class="flex items-center gap-2">
-              <h3 class="text-sm font-bold">${escapeHTML(n.title)}</h3>
-              ${!n.read ? `<span class="badge" style="background: var(--color-primary); color: white; font-size: 10px;">New</span>` : ''}
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="text-sm font-bold" style="color: var(--text-main); margin: 0;">${escapeHTML(n.title)}</h3>
+              ${!n.read ? `<span class="glass-badge-new">New</span>` : ''}
             </div>
-            <p class="text-xs text-muted" style="margin-top: 4px;">${escapeHTML(n.message)}</p>
-            <span class="text-xs text-subtle" style="margin-top: 6px; display: inline-block;">${formatRelativeTime(n.createdAt)}</span>
+            <p class="text-xs text-muted" style="margin-top: 6px; margin-bottom: 6px; line-height: 1.45;">${escapeHTML(n.message)}</p>
+            <div class="flex items-center gap-1 text-xs text-subtle">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span>${formatRelativeTime(n.createdAt)}</span>
+            </div>
           </div>
 
-          <div class="flex flex-col gap-1 items-end">
+          <div class="flex flex-col gap-1 items-end flex-shrink-0">
             ${n.type === 'account_approved' ? `
-              <a href="#/dashboard" class="btn btn-success btn-sm notif-link" data-id="${escapeHTML(n.id)}">
+              <a href="#/dashboard" class="btn btn-success btn-sm notif-link glass-btn" data-id="${escapeHTML(n.id)}" style="background: rgba(22, 163, 74, 0.15); color: #15803d; border: 1px solid rgba(22, 163, 74, 0.3); font-weight: 700;">
                 Go to Feed
               </a>
             ` : n.type === 'new_user_registration' ? `
-              <div class="flex gap-2 items-center flex-wrap justify-end">
-                <button class="btn btn-success btn-sm approve-member-btn" data-uid="${escapeHTML(n.refId || '')}" data-notif-id="${escapeHTML(n.id)}" style="background: #16a34a; color: white; font-weight: 700;">
+              <div class="flex gap-2 items-center flex-wrap justify-end action-btn-group">
+                <button class="btn btn-success btn-sm approve-member-btn glass-btn" data-uid="${escapeHTML(n.refId || '')}" data-notif-id="${escapeHTML(n.id)}" style="background: #16a34a; color: white; font-weight: 700;">
                   ✓ Approve
                 </button>
-                <a href="#/admin" class="btn btn-secondary btn-sm notif-link" data-id="${escapeHTML(n.id)}">
+                <button class="btn btn-danger btn-sm disapprove-member-btn glass-btn" data-uid="${escapeHTML(n.refId || '')}" data-notif-id="${escapeHTML(n.id)}" style="background: #dc2626; color: white; font-weight: 700;">
+                  ✕ Disapprove
+                </button>
+                <a href="#/admin" class="btn btn-secondary btn-sm notif-link glass-btn" data-id="${escapeHTML(n.id)}">
                   Directory
                 </a>
               </div>
             ` : n.refId ? `
-              <a href="#/requests/${escapeHTML(n.refId)}" class="btn btn-secondary btn-sm notif-link" data-id="${escapeHTML(n.id)}">
+              <a href="#/requests/${escapeHTML(n.refId)}" class="btn btn-secondary btn-sm notif-link glass-btn" data-id="${escapeHTML(n.id)}">
                 View
               </a>
             ` : ''}
-            ${!n.read ? `
-              <button class="btn btn-sm mark-single-read-btn" data-id="${escapeHTML(n.id)}" style="font-size: 11px; padding: 2px 6px;">
-                Mark read
+
+            <div class="flex items-center gap-1" style="margin-top: 4px;">
+              ${!n.read ? `
+                <button class="btn btn-sm mark-single-read-btn glass-btn" data-id="${escapeHTML(n.id)}" style="font-size: 11px; padding: 3px 8px; color: var(--color-primary); background: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.2);">
+                  Mark read
+                </button>
+              ` : ''}
+              <button class="btn btn-sm delete-single-notif-btn glass-btn" data-id="${escapeHTML(n.id)}" title="Delete notification" style="font-size: 11px; padding: 4px 6px; color: var(--color-danger); background: transparent; border-color: transparent;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
               </button>
-            ` : ''}
+            </div>
           </div>
         </div>
       `;
 
+      // Approve member button handler
       const approveBtn = card.querySelector('.approve-member-btn');
       if (approveBtn) {
         approveBtn.addEventListener('click', async (e) => {
@@ -116,6 +186,8 @@ export async function renderNotificationsPage(container, { user }) {
 
           approveBtn.disabled = true;
           approveBtn.textContent = 'Approving...';
+          const disapproveBtn = card.querySelector('.disapprove-member-btn');
+          if (disapproveBtn) disapproveBtn.disabled = true;
 
           try {
             await store.updateDoc('users', targetUid, { status: 'approved' });
@@ -131,13 +203,13 @@ export async function renderNotificationsPage(container, { user }) {
             await notificationsService.markAsRead(notifId);
             toast.success('Member approved! Added to active user directory.');
 
-            const parentDiv = approveBtn.parentElement;
+            const parentDiv = approveBtn.closest('.action-btn-group');
             if (parentDiv) {
               parentDiv.innerHTML = `
-                <span class="badge" style="background: #ecfdf5; color: #047857; font-weight: 700; padding: 4px 10px; border: 1px solid #a7f3d0;">
+                <span class="badge" style="background: rgba(22, 163, 74, 0.15); color: #15803d; font-weight: 700; padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(22, 163, 74, 0.3);">
                   ✓ Approved
                 </span>
-                <a href="#/admin" class="btn btn-secondary btn-sm">
+                <a href="#/admin" class="btn btn-secondary btn-sm glass-btn">
                   View Directory
                 </a>
               `;
@@ -146,10 +218,64 @@ export async function renderNotificationsPage(container, { user }) {
             toast.error('Failed to approve member: ' + err.message);
             approveBtn.disabled = false;
             approveBtn.textContent = '✓ Approve';
+            if (disapproveBtn) disapproveBtn.disabled = false;
           }
         });
       }
 
+      // Disapprove member button handler
+      const disapproveBtn = card.querySelector('.disapprove-member-btn');
+      if (disapproveBtn) {
+        disapproveBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const targetUid = disapproveBtn.getAttribute('data-uid');
+          const notifId = disapproveBtn.getAttribute('data-notif-id');
+          if (!targetUid) return;
+
+          const confirmed = window.confirm('Are you sure you want to disapprove this membership request?');
+          if (!confirmed) return;
+
+          disapproveBtn.disabled = true;
+          disapproveBtn.textContent = 'Disapproving...';
+          const approveBtn = card.querySelector('.approve-member-btn');
+          if (approveBtn) approveBtn.disabled = true;
+
+          try {
+            await store.updateDoc('users', targetUid, { status: 'rejected' });
+
+            await notificationsService.create({
+              userId: targetUid,
+              type: 'account_rejected',
+              title: 'Membership Application Update',
+              message: 'Your registration request could not be approved at this time. Please contact the college administrator or the DYP administration office for further details.',
+              refId: null
+            });
+
+            await notificationsService.markAsRead(notifId);
+            toast.info('Membership request disapproved.');
+
+            const parentDiv = disapproveBtn.closest('.action-btn-group');
+            if (parentDiv) {
+              parentDiv.innerHTML = `
+                <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #dc2626; font-weight: 700; padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                  ✕ Disapproved
+                </span>
+                <a href="#/admin" class="btn btn-secondary btn-sm glass-btn">
+                  View Directory
+                </a>
+              `;
+            }
+          } catch (err) {
+            toast.error('Failed to disapprove member: ' + err.message);
+            disapproveBtn.disabled = false;
+            disapproveBtn.textContent = '✕ Disapprove';
+            if (approveBtn) approveBtn.disabled = false;
+          }
+        });
+      }
+
+      // View link handler
       const viewLink = card.querySelector('.notif-link');
       if (viewLink) {
         viewLink.addEventListener('click', async (e) => {
@@ -162,10 +288,24 @@ export async function renderNotificationsPage(container, { user }) {
         });
       }
 
+      // Mark single notification read handler
       const markBtn = card.querySelector('.mark-single-read-btn');
       if (markBtn) {
         markBtn.addEventListener('click', async () => {
           await notificationsService.markAsRead(n.id);
+        });
+      }
+
+      // Delete single notification handler
+      const deleteBtn = card.querySelector('.delete-single-notif-btn');
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', async () => {
+          try {
+            await notificationsService.deleteNotification(n.id);
+            toast.success('Notification removed.');
+          } catch (err) {
+            toast.error('Failed to remove notification: ' + err.message);
+          }
         });
       }
 

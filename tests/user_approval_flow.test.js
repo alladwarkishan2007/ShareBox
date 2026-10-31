@@ -90,13 +90,50 @@ async function testApprovalFlow() {
   const userNotifs = (await store.getDocs('notifications')).filter(n => n.userId === newUser.uid && n.type === 'account_approved');
   assert(userNotifs.length > 0, 'User received account_approved notification alert');
 
-  // Cleanup test user
+  // Step 5: Disapproval Workflow & Clear All Notifications Verification
+  console.log('\n[Step 5] Admin Disapproval Action & Clear Notifications');
+  const rejectApplicant = await authService.signUp({
+    name: 'Rejected Candidate',
+    email: 'reject.' + Math.random().toString(36).substring(2, 7) + '@dyp.edu',
+    password: 'password123',
+    department: 'Civil Engineering',
+    year: '1st Year'
+  });
+
+  assert(rejectApplicant && rejectApplicant.status === 'pending', 'Reject candidate registered with status pending');
+
+  // Disapprove
+  await store.updateDoc('users', rejectApplicant.uid, { status: 'rejected' });
+  await notificationsService.create({
+    userId: rejectApplicant.uid,
+    type: 'account_rejected',
+    title: 'Membership Application Update',
+    message: 'Your registration request could not be approved at this time.',
+    refId: null
+  });
+
+  const freshRejected = await store.getDoc('users', rejectApplicant.uid);
+  assert(freshRejected.status === 'rejected', 'User status updated to rejected');
+
+  // Verify rejection notification received
+  const rejectNotifs = (await store.getDocs('notifications')).filter(n => n.userId === rejectApplicant.uid && n.type === 'account_rejected');
+  assert(rejectNotifs.length > 0, 'User received account_rejected notification alert');
+
+  // Test Clear All Notifications for the rejected user
+  await notificationsService.clearAll(rejectApplicant.uid);
+  const clearedNotifs = (await store.getDocs('notifications')).filter(n => n.userId === rejectApplicant.uid);
+  assert(clearedNotifs.length === 0, 'clearAll successfully removed all user notifications');
+
+  // Cleanup test users
   await store.supabase.from('notifications').delete().eq('ref_id', newUser.uid);
   await store.supabase.from('notifications').delete().eq('user_id', newUser.uid);
   await store.supabase.from('users').delete().eq('id', newUser.uid);
+  await store.supabase.from('notifications').delete().eq('ref_id', rejectApplicant.uid);
+  await store.supabase.from('notifications').delete().eq('user_id', rejectApplicant.uid);
+  await store.supabase.from('users').delete().eq('id', rejectApplicant.uid);
 
   console.log('\n======================================================');
-  console.log(`  APPROVAL FLOW TESTS: ${passed} Passed, ${failed} Failed`);
+  console.log(`  APPROVAL & DISAPPROVAL TESTS: ${passed} Passed, ${failed} Failed`);
   console.log('======================================================\n');
 
   if (failed > 0) process.exit(1);

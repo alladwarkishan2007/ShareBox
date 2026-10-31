@@ -48,7 +48,8 @@ export const USER_ROLES = {
 export const USER_STATUS = {
   PENDING: 'pending',
   APPROVED: 'approved',
-  BLOCKED: 'blocked'
+  BLOCKED: 'blocked',
+  REJECTED: 'rejected'
 };
 
 // WebRTC ICE Configuration

@@ -49,6 +49,18 @@ class NotificationsService {
     }
   }
 
+  async deleteNotification(notificationId) {
+    await store.deleteDoc('notifications', notificationId);
+  }
+
+  async clearAll(userId) {
+    const all = await store.getDocs('notifications');
+    const userNotifs = all.filter(n => n.userId === userId);
+    for (const notif of userNotifs) {
+      await store.deleteDoc('notifications', notif.id);
+    }
+  }
+
   subscribeNotifications(userId, callback) {
     return store.subscribe('notifications', (n) => n.userId === userId, (items) => {
       const sorted = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
