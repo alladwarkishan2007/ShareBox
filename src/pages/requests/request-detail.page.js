@@ -48,6 +48,25 @@ export async function renderRequestDetailPage(container, { user, userData, param
 
   const isAcceptedOrBeyond = ['accepted', 'handed_over', 'returned', 'completed', 'damage_reported'].includes(request.status);
 
+  // Authentication objects
+  const handoverAuth = request.handoverAuth || {
+    code: '----',
+    requesterConfirmed: false,
+    helperConfirmed: false,
+    confirmedAt: null
+  };
+  const returnAuth = request.returnAuth || {
+    code: '----',
+    requesterConfirmed: false,
+    helperConfirmed: false,
+    confirmedAt: null
+  };
+  const completionAuth = request.completionAuth || {
+    requesterConfirmed: false,
+    helperConfirmed: false,
+    confirmedAt: null
+  };
+
   // Fetch Event info
   const event = await eventsService.getEventById(request.eventId);
 
@@ -138,68 +157,279 @@ export async function renderRequestDetailPage(container, { user, userData, param
                 </div>
               ` : ''}
 
-              <!-- Handover & Return Interactive Action Panel -->
+              <!-- Dual-Sided Handover & Return Action Center -->
               ${isAcceptedOrBeyond && isParticipant ? `
                 <div style="background: var(--bg-subtle); padding: var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-                  <h4 class="text-sm font-bold" style="margin-bottom: 8px;">Action Center</h4>
+                  <div class="flex justify-between items-center mb-3">
+                    <h4 class="text-sm font-bold" style="margin: 0;">Dual-Sided Action Center</h4>
+                    <span class="badge" style="background: #e2e8f0; color: #334155; font-size: 11px; text-transform: uppercase;">
+                      Stage: ${escapeHTML(request.status.replace('_', ' '))}
+                    </span>
+                  </div>
 
-                  <!-- Step 1: Handover Confirmation -->
+                  <!-- ============================================== -->
+                  <!-- STAGE 1: ACCEPTED -> HANDOVER (Mutual Verification) -->
+                  <!-- ============================================== -->
                   ${request.status === 'accepted' ? `
-                    <p class="text-xs text-muted" style="margin-bottom: 12px;">
-                      Met in person? Confirm that the item was physically handed over to start the borrowing timer.
-                    </p>
-                    <button id="mark-handover-btn" class="btn btn-primary btn-sm" style="width: 100%;">
-                      Mark as Handed Over
-                    </button>
-                  ` : ''}
+                    <div class="flex flex-col gap-3">
+                      <!-- Coordination Window & Inactivity Timer Banner -->
+                      <div class="flex justify-between items-center flex-wrap gap-2" style="background: #fffbeb; border: 1px solid #fde68a; padding: 8px 12px; border-radius: var(--radius-sm);">
+                        <div class="flex items-center gap-2">
+                          <span style="font-size: 16px;">⏱️</span>
+                          <span class="text-xs font-semibold" style="color: #92400e;">
+                            Handover Coordination Window:
+                          </span>
+                        </div>
+                        <span id="handover-timer-badge" class="badge" style="background: #fef3c7; color: #b45309; font-weight: 700; font-family: var(--font-mono);">
+                          ${(() => {
+                            if (!request.handoverDeadline) return '30m active';
+                            const diffMs = new Date(request.handoverDeadline) - new Date();
+                            if (diffMs <= 0) return 'Expired (Reopen available)';
+                            const mins = Math.floor(diffMs / 60000);
+                            const secs = Math.floor((diffMs % 60000) / 1000);
+                            return `${mins}m ${secs}s remaining`;
+                          })()}
+                        </span>
+                      </div>
 
-                  <!-- Step 2: Return Flow -->
-                  ${request.status === 'handed_over' ? `
-                    <div class="flex flex-col gap-2">
-                      <p class="text-xs text-muted">
-                        ${isBorrower ? 'Finished using the item? Return it to the lender and mark below.' : 'Waiting for borrower to return item.'}
-                      </p>
+                      <!-- Two-Sided Status Pills -->
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div style="background: #ffffff; padding: 8px; border-radius: var(--radius-sm); border: 1px solid ${handoverAuth.helperConfirmed ? '#86efac' : '#cbd5e1'};">
+                          <div class="text-xs text-muted">Lender Handover:</div>
+                          <div class="text-xs font-bold" style="color: ${handoverAuth.helperConfirmed ? '#16a34a' : '#d97706'};">
+                            ${handoverAuth.helperConfirmed ? '✓ Confirmed by Lender' : '⏳ Pending Confirmation'}
+                          </div>
+                        </div>
+                        <div style="background: #ffffff; padding: 8px; border-radius: var(--radius-sm); border: 1px solid ${handoverAuth.requesterConfirmed ? '#86efac' : '#cbd5e1'};">
+                          <div class="text-xs text-muted">Borrower Receipt:</div>
+                          <div class="text-xs font-bold" style="color: ${handoverAuth.requesterConfirmed ? '#16a34a' : '#d97706'};">
+                            ${handoverAuth.requesterConfirmed ? '✓ Confirmed by Borrower' : '⏳ Pending Confirmation'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Borrower's View: Holds Handover PIN & Confirmation -->
                       ${isBorrower ? `
-                        <button id="mark-returned-btn" class="btn btn-primary btn-sm">
-                          I Have Returned This Item
-                        </button>
+                        <div style="background: #eff6ff; border: 1.5px dashed #3b82f6; border-radius: var(--radius-md); padding: 12px;">
+                          <div class="flex justify-between items-center flex-wrap gap-2">
+                            <div>
+                              <div class="text-xs font-bold" style="color: #1e40af;">YOUR HANDOVER AUTHENTICATION PIN</div>
+                              <div style="font-size: 26px; font-weight: 800; letter-spacing: 5px; color: #1d4ed8; font-family: var(--font-mono); margin: 2px 0;">
+                                ${escapeHTML(handoverAuth.code || '----')}
+                              </div>
+                              <div class="text-xs text-muted">
+                                Show this PIN to <strong>${escapeHTML(partnerName)}</strong> when you meet in person to take possession.
+                              </div>
+                            </div>
+                            <div>
+                              ${handoverAuth.requesterConfirmed ? `
+                                <span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 6px 10px;">
+                                  ✓ You Confirmed Receipt
+                                </span>
+                              ` : `
+                                <button id="borrower-confirm-handover-btn" class="btn btn-primary btn-sm">
+                                  ✓ I Received Equipment
+                                </button>
+                              `}
+                            </div>
+                          </div>
+                        </div>
                       ` : ''}
+
+                      <!-- Lender's View: Enters Borrower's PIN or Confirms Handover -->
                       ${isLender ? `
-                        <div class="flex gap-2" style="margin-top: 4px;">
-                          <button id="confirm-good-btn" class="btn btn-success btn-sm flex-1">
-                            Received in Good Condition
+                        <div style="background: #eff6ff; border: 1.5px dashed #3b82f6; border-radius: var(--radius-md); padding: 12px;">
+                          <div class="text-xs font-bold" style="color: #1e40af; margin-bottom: 6px;">
+                            ENTER BORROWER'S 4-DIGIT HANDOVER PIN
+                          </div>
+                          <div class="flex gap-2 items-center flex-wrap">
+                            <input type="text" id="handover-pin-input" class="form-input font-mono" maxlength="4" placeholder="PIN" style="width: 100px; text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 3px;">
+                            <button id="verify-handover-pin-btn" class="btn btn-primary btn-sm">
+                              Verify PIN & Complete Handover
+                            </button>
+                            <span class="text-xs text-muted">or</span>
+                            ${handoverAuth.helperConfirmed ? `
+                              <span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 6px 10px;">
+                                ✓ You Confirmed Handover
+                              </span>
+                            ` : `
+                              <button id="lender-confirm-handover-btn" class="btn btn-secondary btn-sm">
+                                Confirm Physical Handover
+                              </button>
+                            `}
+                          </div>
+                          <div class="text-xs text-muted" style="margin-top: 6px;">
+                            Ask <strong>${escapeHTML(partnerName)}</strong> for their 4-digit Handover PIN upon in-person exchange to verify both sides.
+                          </div>
+                        </div>
+                      ` : ''}
+
+                      <!-- Safety Controls: Stop Helping & Reopen if Inactive -->
+                      <div class="flex justify-between items-center flex-wrap gap-2" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-subtle);">
+                        ${isHelper ? `
+                          <div class="text-xs text-muted">Cannot provide this item anymore?</div>
+                          <button id="stop-helping-btn" class="btn btn-outline btn-xs" style="color: #dc2626; border-color: #fca5a5; font-weight: 700;">
+                            🛑 Stop Helping (Reopen Request)
                           </button>
-                          <button id="report-damage-btn" class="btn btn-danger btn-sm">
-                            Report Damage
+                        ` : ''}
+                        ${isOwner ? `
+                          <div class="text-xs text-muted">Helper unresponsive or cannot meet?</div>
+                          <button id="reopen-inactive-btn" class="btn btn-outline btn-xs" style="color: #d97706; border-color: #fde68a; font-weight: 700;">
+                            ⚠️ Helper Inactive? Reopen Request
                           </button>
+                        ` : ''}
+                      </div>
+                    </div>
+                  ` : ''}
+
+                  <!-- ============================================== -->
+                  <!-- STAGE 2: HANDED_OVER -> RETURN (Mutual Verification) -->
+                  <!-- ============================================== -->
+                  ${request.status === 'handed_over' ? `
+                    <div class="flex flex-col gap-3">
+                      <!-- Two-Sided Status Pills -->
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div style="background: #ffffff; padding: 8px; border-radius: var(--radius-sm); border: 1px solid ${returnAuth.requesterConfirmed ? '#86efac' : '#cbd5e1'};">
+                          <div class="text-xs text-muted">Borrower Return:</div>
+                          <div class="text-xs font-bold" style="color: ${returnAuth.requesterConfirmed ? '#16a34a' : '#d97706'};">
+                            ${returnAuth.requesterConfirmed ? '✓ Marked Returned by Borrower' : '⏳ In Borrower Custody'}
+                          </div>
+                        </div>
+                        <div style="background: #ffffff; padding: 8px; border-radius: var(--radius-sm); border: 1px solid ${returnAuth.helperConfirmed ? '#86efac' : '#cbd5e1'};">
+                          <div class="text-xs text-muted">Lender Verification:</div>
+                          <div class="text-xs font-bold" style="color: ${returnAuth.helperConfirmed ? '#16a34a' : '#d97706'};">
+                            ${returnAuth.helperConfirmed ? '✓ Physical Return Verified' : '⏳ Awaiting Physical Return'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Lender's View: Holds Return PIN & Receives Return -->
+                      ${isLender ? `
+                        <div style="background: #f5f3ff; border: 1.5px dashed #8b5cf6; border-radius: var(--radius-md); padding: 12px;">
+                          <div class="flex justify-between items-center flex-wrap gap-2">
+                            <div>
+                              <div class="text-xs font-bold" style="color: #6b21a8;">YOUR RETURN VERIFICATION PIN</div>
+                              <div style="font-size: 26px; font-weight: 800; letter-spacing: 5px; color: #7c3aed; font-family: var(--font-mono); margin: 2px 0;">
+                                ${escapeHTML(returnAuth.code || '----')}
+                              </div>
+                              <div class="text-xs text-muted">
+                                Give this PIN to <strong>${escapeHTML(partnerName)}</strong> once you physically receive your equipment back.
+                              </div>
+                            </div>
+                            <div class="flex gap-2 items-center">
+                              ${returnAuth.helperConfirmed ? `
+                                <span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 6px 10px;">
+                                  ✓ You Confirmed Receipt Back
+                                </span>
+                              ` : `
+                                <button id="lender-confirm-return-btn" class="btn btn-primary btn-sm">
+                                  ✓ I Received Item Back
+                                </button>
+                              `}
+                              <button id="report-damage-btn" class="btn btn-danger btn-sm">
+                                Report Damage
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ` : ''}
+
+                      <!-- Borrower's View: Enters Lender's Return PIN or Marks Returned -->
+                      ${isBorrower ? `
+                        <div style="background: #f5f3ff; border: 1.5px dashed #8b5cf6; border-radius: var(--radius-md); padding: 12px;">
+                          <div class="text-xs font-bold" style="color: #6b21a8; margin-bottom: 6px;">
+                            ENTER LENDER'S 4-DIGIT RETURN PIN
+                          </div>
+                          <div class="flex gap-2 items-center flex-wrap">
+                            <input type="text" id="return-pin-input" class="form-input font-mono" maxlength="4" placeholder="PIN" style="width: 100px; text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 3px;">
+                            <button id="verify-return-pin-btn" class="btn btn-primary btn-sm">
+                              Verify PIN & Complete Return
+                            </button>
+                            <span class="text-xs text-muted">or</span>
+                            ${returnAuth.requesterConfirmed ? `
+                              <span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 6px 10px;">
+                                ✓ You Marked Returned
+                              </span>
+                            ` : `
+                              <button id="borrower-mark-returned-btn" class="btn btn-secondary btn-sm">
+                                I Have Returned This Item
+                              </button>
+                            `}
+                          </div>
+                          <div class="text-xs text-muted" style="margin-top: 6px;">
+                            Ask <strong>${escapeHTML(partnerName)}</strong> for their 4-digit Return PIN once you hand the equipment back.
+                          </div>
                         </div>
                       ` : ''}
                     </div>
                   ` : ''}
 
-                  <!-- Step 3: Returned Inspection -->
+                  <!-- ============================================== -->
+                  <!-- STAGE 3: RETURNED -> COMPLETED (Two-Sided Sign-Off) -->
+                  <!-- ============================================== -->
                   ${request.status === 'returned' ? `
-                    <div class="flex flex-col gap-2">
-                      <p class="text-xs text-muted">
-                        ${isLender ? 'Borrower has marked this item returned. Inspect the condition before closing.' : 'You marked this item returned. Awaiting owner inspection.'}
-                      </p>
-                      ${isLender ? `
-                        <div class="flex gap-2">
-                          <button id="confirm-good-btn" class="btn btn-success btn-sm flex-1">
-                            Received in Good Condition (Complete)
-                          </button>
-                          <button id="report-damage-btn" class="btn btn-danger btn-sm">
-                            Report Damage
-                          </button>
+                    <div class="flex flex-col gap-3">
+                      <div class="text-xs text-muted">
+                        Equipment is physically returned. Both parties must sign off to complete the transaction.
+                      </div>
+
+                      <!-- Two-Sided Status Pills -->
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div style="background: #ffffff; padding: 8px; border-radius: var(--radius-sm); border: 1px solid ${completionAuth.helperConfirmed ? '#86efac' : '#cbd5e1'};">
+                          <div class="text-xs text-muted">Lender Condition Check:</div>
+                          <div class="text-xs font-bold" style="color: ${completionAuth.helperConfirmed ? '#16a34a' : '#d97706'};">
+                            ${completionAuth.helperConfirmed ? '✓ Good Condition Confirmed' : '⏳ Awaiting Inspection'}
+                          </div>
                         </div>
-                      ` : ''}
+                        <div style="background: #ffffff; padding: 8px; border-radius: var(--radius-sm); border: 1px solid ${completionAuth.requesterConfirmed ? '#86efac' : '#cbd5e1'};">
+                          <div class="text-xs text-muted">Borrower Sign-Off:</div>
+                          <div class="text-xs font-bold" style="color: ${completionAuth.requesterConfirmed ? '#16a34a' : '#d97706'};">
+                            ${completionAuth.requesterConfirmed ? '✓ Closure Confirmed' : '⏳ Awaiting Sign-Off'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="flex gap-2 flex-wrap items-center">
+                        ${isLender ? `
+                          ${completionAuth.helperConfirmed ? `
+                            <span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 6px 12px;">
+                              ✓ You Confirmed Good Condition
+                            </span>
+                          ` : `
+                            <button id="lender-confirm-completion-btn" class="btn btn-success btn-sm">
+                              ✓ Received in Good Condition (Sign-Off)
+                            </button>
+                            <button id="report-damage-btn" class="btn btn-danger btn-sm">
+                              Report Damage
+                            </button>
+                          `}
+                        ` : ''}
+
+                        ${isBorrower ? `
+                          ${completionAuth.requesterConfirmed ? `
+                            <span class="badge" style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 6px 12px;">
+                              ✓ You Confirmed Return Closure
+                            </span>
+                          ` : `
+                            <button id="borrower-confirm-completion-btn" class="btn btn-primary btn-sm">
+                              ✓ Confirm Transaction Closure (Sign-Off)
+                            </button>
+                          `}
+                        ` : ''}
+                      </div>
                     </div>
                   ` : ''}
 
+                  <!-- ============================================== -->
+                  <!-- STAGE 4: COMPLETED -->
+                  <!-- ============================================== -->
                   ${request.status === 'completed' ? `
-                    <p class="text-xs" style="color: var(--color-success); font-weight: bold;">
-                      ✓ Transaction completed! Item returned in good condition.
-                    </p>
+                    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px; border-radius: var(--radius-sm); color: #047857;">
+                      <div style="font-weight: 700; font-size: 0.95rem;">✓ Transaction Fully Verified & Completed!</div>
+                      <div class="text-xs" style="margin-top: 4px;">
+                        Both lender and borrower authenticated each stage of this equipment exchange.
+                      </div>
+                    </div>
                   ` : ''}
                 </div>
               ` : ''}
@@ -348,7 +578,7 @@ export async function renderRequestDetailPage(container, { user, userData, param
       acceptBtn.textContent = 'Accepting...';
       try {
         await requestsService.acceptRequest(request.id, user);
-        toast.success('You have accepted this request! Real-time chat is now open.');
+        toast.success('You have accepted this request! Real-time chat & handover coordination are now open.');
         refreshPage();
       } catch (err) {
         toast.error(err.message);
@@ -358,7 +588,49 @@ export async function renderRequestDetailPage(container, { user, userData, param
     });
   }
 
-  // 2. Cancel Request Handler
+  // 2. Stop Helping Handler (Helper voluntarily steps down)
+  const stopHelpingBtn = container.querySelector('#stop-helping-btn');
+  if (stopHelpingBtn) {
+    stopHelpingBtn.addEventListener('click', async () => {
+      const confirmed = confirm('Are you sure you want to stop helping with this request?\n\nThe request will immediately return to OPEN so another student can help.');
+      if (!confirmed) return;
+
+      stopHelpingBtn.disabled = true;
+      stopHelpingBtn.textContent = 'Reopening...';
+      try {
+        await requestsService.withdrawHelp(request.id, user);
+        toast.info('You have stepped down. The request is now open for other students.');
+        refreshPage();
+      } catch (err) {
+        toast.error(err.message);
+        stopHelpingBtn.disabled = false;
+        stopHelpingBtn.textContent = '🛑 Stop Helping (Reopen Request)';
+      }
+    });
+  }
+
+  // 3. Reopen Inactive Request Handler (Requester releases unresponsive helper)
+  const reopenInactiveBtn = container.querySelector('#reopen-inactive-btn');
+  if (reopenInactiveBtn) {
+    reopenInactiveBtn.addEventListener('click', async () => {
+      const confirmed = confirm('Has the helper been unresponsive or unable to meet?\n\nThis will release the helper and reopen your request for other campus members.');
+      if (!confirmed) return;
+
+      reopenInactiveBtn.disabled = true;
+      reopenInactiveBtn.textContent = 'Reopening...';
+      try {
+        await requestsService.reopenUnresponsiveRequest(request.id, user);
+        toast.info('Request has been reopened. Other campus members can now accept it.');
+        refreshPage();
+      } catch (err) {
+        toast.error(err.message);
+        reopenInactiveBtn.disabled = false;
+        reopenInactiveBtn.textContent = '⚠️ Helper Inactive? Reopen Request';
+      }
+    });
+  }
+
+  // 4. Cancel Request Handler (Requester cancels whole post)
   const cancelBtn = container.querySelector('#detail-cancel-btn');
   if (cancelBtn) {
     cancelBtn.addEventListener('click', async () => {
@@ -374,80 +646,187 @@ export async function renderRequestDetailPage(container, { user, userData, param
     });
   }
 
-  // 3. Mark Handed Over Modal
-  const handoverBtn = container.querySelector('#mark-handover-btn');
-  if (handoverBtn) {
-    handoverBtn.addEventListener('click', () => {
-      modal.open({
-        title: 'Confirm Physical Handover',
-        contentHTML: `
-          <div class="form-group">
-            <label class="form-label" for="handover-notes">Condition Notes (Optional)</label>
-            <input type="text" id="handover-notes" class="form-input" placeholder="e.g. In working condition, includes 2 cables...">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="handover-photo">Condition Photo (Optional)</label>
-            <input type="file" id="handover-photo" class="form-input" accept="image/*">
-            <span class="form-hint">Take a quick picture as proof of current item condition.</span>
-          </div>
-        `,
-        confirmText: 'Confirm Handover',
-        onConfirm: async () => {
-          const notesInput = document.getElementById('handover-notes');
-          const photoInput = document.getElementById('handover-photo');
-          const notes = notesInput ? notesInput.value : '';
-          const photoFile = photoInput?.files[0] || null;
-
-          try {
-            await requestsService.confirmHandover(request.id, user, photoFile, notes);
-            toast.success('Item handover confirmed!');
-            refreshPage();
-          } catch (e) {
-            toast.error(e.message);
-            throw e;
-          }
+  // 5. Handover Authentication Handlers
+  const borrowerConfirmHandoverBtn = container.querySelector('#borrower-confirm-handover-btn');
+  if (borrowerConfirmHandoverBtn) {
+    borrowerConfirmHandoverBtn.addEventListener('click', async () => {
+      borrowerConfirmHandoverBtn.disabled = true;
+      borrowerConfirmHandoverBtn.textContent = 'Confirming...';
+      try {
+        const res = await requestsService.authenticateHandover(request.id, user);
+        if (res.bothConfirmed) {
+          toast.success('Handover fully verified by both parties!');
+        } else {
+          toast.info('You confirmed receipt! Awaiting lender confirmation to start borrowing period.');
         }
-      });
-    });
-  }
-
-  // 4. Mark Returned Handler
-  const returnedBtn = container.querySelector('#mark-returned-btn');
-  if (returnedBtn) {
-    returnedBtn.addEventListener('click', async () => {
-      if (confirm('Confirm that you have returned this item to the owner?')) {
-        try {
-          await requestsService.markReturned(request.id, user);
-          toast.success('Item marked as returned! Awaiting owner confirmation.');
-          refreshPage();
-        } catch (e) {
-          toast.error(e.message);
-        }
+        refreshPage();
+      } catch (err) {
+        toast.error(err.message);
+        borrowerConfirmHandoverBtn.disabled = false;
+        borrowerConfirmHandoverBtn.textContent = '✓ I Received Equipment';
       }
     });
   }
 
-  // 5. Confirm Good Condition Handler
-  const confirmGoodBtn = container.querySelector('#confirm-good-btn');
-  if (confirmGoodBtn) {
-    confirmGoodBtn.addEventListener('click', async () => {
-      if (confirm('Confirm receipt in good working condition? This completes the request.')) {
-        try {
-          await requestsService.confirmReceivedInGoodCondition(request.id, user);
-          toast.success('Request marked as completed in good condition!');
-          refreshPage();
-        } catch (e) {
-          toast.error(e.message);
+  const lenderConfirmHandoverBtn = container.querySelector('#lender-confirm-handover-btn');
+  if (lenderConfirmHandoverBtn) {
+    lenderConfirmHandoverBtn.addEventListener('click', async () => {
+      lenderConfirmHandoverBtn.disabled = true;
+      lenderConfirmHandoverBtn.textContent = 'Confirming...';
+      try {
+        const res = await requestsService.authenticateHandover(request.id, user);
+        if (res.bothConfirmed) {
+          toast.success('Handover fully verified by both parties!');
+        } else {
+          toast.info('You confirmed handover! Awaiting borrower receipt confirmation.');
         }
+        refreshPage();
+      } catch (err) {
+        toast.error(err.message);
+        lenderConfirmHandoverBtn.disabled = false;
+        lenderConfirmHandoverBtn.textContent = 'Confirm Physical Handover';
       }
     });
   }
 
-  // 6. Report Damage Modal
+  const verifyHandoverPinBtn = container.querySelector('#verify-handover-pin-btn');
+  if (verifyHandoverPinBtn) {
+    verifyHandoverPinBtn.addEventListener('click', async () => {
+      const pinInput = container.querySelector('#handover-pin-input');
+      const pin = pinInput ? pinInput.value.trim() : '';
+      if (!pin || pin.length < 4) {
+        toast.error('Please enter the 4-digit Handover PIN from the borrower.');
+        return;
+      }
+
+      verifyHandoverPinBtn.disabled = true;
+      verifyHandoverPinBtn.textContent = 'Verifying...';
+      try {
+        const res = await requestsService.authenticateHandover(request.id, user, { pin });
+        toast.success('PIN verified! Item handover authenticated by both parties.');
+        refreshPage();
+      } catch (err) {
+        toast.error(err.message);
+        verifyHandoverPinBtn.disabled = false;
+        verifyHandoverPinBtn.textContent = 'Verify PIN & Complete Handover';
+      }
+    });
+  }
+
+  // 6. Return Authentication Handlers
+  const borrowerMarkReturnedBtn = container.querySelector('#borrower-mark-returned-btn');
+  if (borrowerMarkReturnedBtn) {
+    borrowerMarkReturnedBtn.addEventListener('click', async () => {
+      borrowerMarkReturnedBtn.disabled = true;
+      borrowerMarkReturnedBtn.textContent = 'Marking...';
+      try {
+        const res = await requestsService.authenticateReturn(request.id, user);
+        if (res.bothConfirmed) {
+          toast.success('Return fully verified by both parties!');
+        } else {
+          toast.info('You marked item returned! Awaiting lender to verify physical receipt.');
+        }
+        refreshPage();
+      } catch (err) {
+        toast.error(err.message);
+        borrowerMarkReturnedBtn.disabled = false;
+        borrowerMarkReturnedBtn.textContent = 'I Have Returned This Item';
+      }
+    });
+  }
+
+  const lenderConfirmReturnBtn = container.querySelector('#lender-confirm-return-btn');
+  if (lenderConfirmReturnBtn) {
+    lenderConfirmReturnBtn.addEventListener('click', async () => {
+      lenderConfirmReturnBtn.disabled = true;
+      lenderConfirmReturnBtn.textContent = 'Confirming...';
+      try {
+        const res = await requestsService.authenticateReturn(request.id, user);
+        if (res.bothConfirmed) {
+          toast.success('Return fully verified by both parties!');
+        } else {
+          toast.info('You confirmed return receipt! Awaiting borrower confirmation.');
+        }
+        refreshPage();
+      } catch (err) {
+        toast.error(err.message);
+        lenderConfirmReturnBtn.disabled = false;
+        lenderConfirmReturnBtn.textContent = '✓ I Received Item Back';
+      }
+    });
+  }
+
+  const verifyReturnPinBtn = container.querySelector('#verify-return-pin-btn');
+  if (verifyReturnPinBtn) {
+    verifyReturnPinBtn.addEventListener('click', async () => {
+      const pinInput = container.querySelector('#return-pin-input');
+      const pin = pinInput ? pinInput.value.trim() : '';
+      if (!pin || pin.length < 4) {
+        toast.error('Please enter the 4-digit Return PIN from the lender.');
+        return;
+      }
+
+      verifyReturnPinBtn.disabled = true;
+      verifyReturnPinBtn.textContent = 'Verifying...';
+      try {
+        const res = await requestsService.authenticateReturn(request.id, user, { pin });
+        toast.success('PIN verified! Equipment return authenticated by both parties.');
+        refreshPage();
+      } catch (err) {
+        toast.error(err.message);
+        verifyReturnPinBtn.disabled = false;
+        verifyReturnPinBtn.textContent = 'Verify PIN & Complete Return';
+      }
+    });
+  }
+
+  // 7. Completion Sign-Off Handlers
+  const lenderConfirmCompletionBtn = container.querySelector('#lender-confirm-completion-btn');
+  if (lenderConfirmCompletionBtn) {
+    lenderConfirmCompletionBtn.addEventListener('click', async () => {
+      lenderConfirmCompletionBtn.disabled = true;
+      lenderConfirmCompletionBtn.textContent = 'Confirming...';
+      try {
+        const res = await requestsService.authenticateCompletion(request.id, user);
+        if (res.bothConfirmed) {
+          toast.success('Transaction fully completed and closed!');
+        } else {
+          toast.info('You confirmed good condition! Awaiting borrower sign-off to finalize.');
+        }
+        refreshPage();
+      } catch (err) {
+        toast.error(err.message);
+        lenderConfirmCompletionBtn.disabled = false;
+        lenderConfirmCompletionBtn.textContent = '✓ Received in Good Condition (Sign-Off)';
+      }
+    });
+  }
+
+  const borrowerConfirmCompletionBtn = container.querySelector('#borrower-confirm-completion-btn');
+  if (borrowerConfirmCompletionBtn) {
+    borrowerConfirmCompletionBtn.addEventListener('click', async () => {
+      borrowerConfirmCompletionBtn.disabled = true;
+      borrowerConfirmCompletionBtn.textContent = 'Confirming...';
+      try {
+        const res = await requestsService.authenticateCompletion(request.id, user);
+        if (res.bothConfirmed) {
+          toast.success('Transaction fully completed and closed!');
+        } else {
+          toast.info('You confirmed transaction closure! Awaiting lender inspection sign-off.');
+        }
+        refreshPage();
+      } catch (err) {
+        toast.error(err.message);
+        borrowerConfirmCompletionBtn.disabled = false;
+        borrowerConfirmCompletionBtn.textContent = '✓ Confirm Transaction Closure (Sign-Off)';
+      }
+    });
+  }
+
+  // 8. Report Damage Modal
   const reportDamageBtn = container.querySelector('#report-damage-btn');
   if (reportDamageBtn) {
     reportDamageBtn.addEventListener('click', () => {
-      // The person who borrowed the item is the requester (or helper if type was offer)
       const borrowerUid = request.type === 'offer' ? request.helperId : request.requesterId;
 
       modal.open({
@@ -495,7 +874,7 @@ export async function renderRequestDetailPage(container, { user, userData, param
     });
   }
 
-  // 7. Rebuttal Form Handler
+  // 9. Rebuttal Form Handler
   const rebuttalForm = container.querySelector('#rebuttal-form');
   if (rebuttalForm && damageReport) {
     rebuttalForm.addEventListener('submit', async (e) => {
@@ -513,7 +892,7 @@ export async function renderRequestDetailPage(container, { user, userData, param
     });
   }
 
-  // 8. Meeting Point Propose & Confirm
+  // 10. Meeting Point Propose & Confirm
   const proposePointBtn = container.querySelector('#propose-point-btn');
   if (proposePointBtn) {
     proposePointBtn.addEventListener('click', () => {
@@ -546,18 +925,41 @@ export async function renderRequestDetailPage(container, { user, userData, param
     });
   }
 
-  // 9. Mount Real-Time Chat
+  // 11. Mount Real-Time Chat
   if (isAcceptedOrBeyond && isParticipant) {
     const chatWrapper = container.querySelector('#chat-wrapper');
-    const chatBox = createChatBox({
-      request,
-      currentUser: user,
-      otherUserName: partnerName,
-      onLocationClick: () => {
-        if (proposePointBtn) proposePointBtn.click();
-      }
-    });
+    if (chatWrapper) {
+      const chatBox = createChatBox({
+        request,
+        currentUser: user,
+        otherUserName: partnerName,
+        onLocationClick: () => {
+          if (proposePointBtn) proposePointBtn.click();
+        }
+      });
+      chatWrapper.appendChild(chatBox);
+    }
+  }
 
-    chatWrapper.appendChild(chatBox);
+  // 12. Active Countdown Timer for Handover Coordination Window
+  const timerBadge = container.querySelector('#handover-timer-badge');
+  if (timerBadge && request.status === 'accepted' && request.handoverDeadline) {
+    const timerInterval = setInterval(() => {
+      if (!document.body.contains(timerBadge)) {
+        clearInterval(timerInterval);
+        return;
+      }
+      const diffMs = new Date(request.handoverDeadline) - new Date();
+      if (diffMs <= 0) {
+        timerBadge.textContent = 'Expired (Reopen available)';
+        timerBadge.style.background = '#fee2e2';
+        timerBadge.style.color = '#dc2626';
+        clearInterval(timerInterval);
+      } else {
+        const mins = Math.floor(diffMs / 60000);
+        const secs = Math.floor((diffMs % 60000) / 1000);
+        timerBadge.textContent = `${mins}m ${secs}s remaining`;
+      }
+    }, 1000);
   }
 }
