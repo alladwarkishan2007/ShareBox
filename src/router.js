@@ -22,6 +22,11 @@ class Router {
     this.routes = routes;
     this.appContainer = document.getElementById('app');
 
+    // On fresh new tab open or root access, ensure Home page ('#/') is the default view
+    if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#/') {
+      window.location.hash = '#/';
+    }
+
     window.addEventListener('hashchange', () => this.handleRoute());
     window.addEventListener('load', () => this.handleRoute());
   }
@@ -94,6 +99,12 @@ class Router {
 
     // Guard 1: Requires Authentication
     if (routeDef.requiresAuth && !this.currentUser) {
+      // If a fresh tab without an active session tries to access a protected page, direct to Home page
+      const hasActiveSession = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('sharebox_session_uid');
+      if (!hasActiveSession) {
+        this.navigate('#/');
+        return;
+      }
       toast.info('Please sign in to access this page.');
       this.navigate('#/login');
       return;

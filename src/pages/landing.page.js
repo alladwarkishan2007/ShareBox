@@ -1,6 +1,6 @@
 import { escapeHTML } from '../utils/sanitize.js';
 
-export async function renderLandingPage(container) {
+export async function renderLandingPage(container, { user } = {}) {
   container.innerHTML = `
     <div class="hero-section">
       <div class="container">
@@ -15,9 +15,14 @@ export async function renderLandingPage(container) {
         <p class="hero-subtitle">
           The smart, autonomous campus resource and equipment coordination platform. Never lose or scramble for cables, tools, or hardware during college events again.
         </p>
-        <div class="hero-actions">
-          <a href="#/signup" class="btn btn-primary btn-lg">Join Campus Platform</a>
-          <a href="#/login" class="btn btn-secondary btn-lg">Sign In</a>
+        <div class="hero-actions" style="display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;">
+          ${user ? `
+            <a href="#/dashboard" class="btn btn-primary btn-lg">Go to Feed & Dashboard</a>
+            <a href="#/requests/new" class="btn btn-secondary btn-lg">+ Post Request</a>
+          ` : `
+            <a href="#/signup" class="btn btn-primary btn-lg">Join Campus Platform</a>
+            <a href="#/login" class="btn btn-secondary btn-lg">Sign In</a>
+          `}
         </div>
 
         <div class="feature-grid">

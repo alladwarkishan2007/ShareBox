@@ -326,7 +326,7 @@ export const store = {
 
     if (isBrowser) {
       sessionStorage.setItem('sharebox_session_uid', uid);
-      localStorage.setItem('sharebox_session_uid', uid);
+      localStorage.removeItem('sharebox_session_uid');
     }
     this._notifyAuth(newUser);
     return newUser;
@@ -410,7 +410,7 @@ export const store = {
 
     if (isBrowser) {
       sessionStorage.setItem('sharebox_session_uid', user.uid);
-      localStorage.setItem('sharebox_session_uid', user.uid);
+      localStorage.removeItem('sharebox_session_uid');
     }
     this._notifyAuth(user);
     return user;
@@ -440,7 +440,10 @@ export const store = {
     this._authListeners.push(callback);
 
     if (isBrowser) {
-      const currentUid = sessionStorage.getItem('sharebox_session_uid') || localStorage.getItem('sharebox_session_uid');
+      // Purge any legacy localStorage session so fresh tabs and other devices start completely fresh on the Home page
+      try { localStorage.removeItem('sharebox_session_uid'); } catch (e) {}
+
+      const currentUid = sessionStorage.getItem('sharebox_session_uid');
 
       if (currentUid) {
         const localUsers = getLocalTable('users');
