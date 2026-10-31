@@ -1,11 +1,11 @@
-# ShareBox 📦
+# ShareBox 
 **Campus Resource Sharing & Peer-to-Peer Equipment Coordination Platform**
 
 ShareBox is a complete, autonomous web application built for college campuses and events. During hackathons, technical fests, labs, and workshops, equipment gets misplaced, damaged, or remains inaccessible. ShareBox empowers students and organizers to post requests, accept items with race-condition-safe transactions, communicate via real-time chat and WebRTC voice calls, coordinate meeting points safely without live GPS tracking, and enforce accountability through damage reporting and borrowing restrictions.
 
 ---
 
-## 🚀 Key Features
+##  Key Features
 
 - **College-Restricted Authentication**: Sign up restricted strictly to institution email addresses (`@college.edu`), with email verification and an administrative approval queue.
 - **Event & Community Scoping**: Requests are partitioned by event (e.g. Hackathon 2026, Robotics Workshop) or shared across the campus-wide community.
@@ -18,7 +18,7 @@ ShareBox is a complete, autonomous web application built for college campuses an
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 - **Frontend**: HTML5, CSS3 (Mobile-First CSS Custom Properties / Design Tokens), Vanilla JavaScript (ES Modules).
 - **Bundler & Tooling**: Vite 5.
@@ -29,7 +29,7 @@ ShareBox is a complete, autonomous web application built for college campuses an
 
 ---
 
-## 📦 Getting Started
+##  Getting Started
 
 ### 1. Prerequisites
 - **Node.js**: v18.0.0 or higher
@@ -64,7 +64,7 @@ The Emulator UI will be accessible at `http://localhost:4000`.
 
 ---
 
-## 📂 Project Directory Structure
+##  Project Directory Structure
 
 ```
 sharebox/
