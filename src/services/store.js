@@ -48,15 +48,17 @@ function getLocalTable(tableName) {
   }
 }
 
-function setLocalTable(tableName, data) {
+function setLocalTable(tableName, data, broadcast = false) {
   inMemoryStore[tableName] = data;
   if (isBrowser) {
     try {
       localStorage.setItem(STORAGE_PREFIX + tableName, JSON.stringify(data));
-      if (channel) {
-        channel.postMessage({ type: 'table_update', table: tableName, timestamp: Date.now() });
+      if (broadcast) {
+        if (channel) {
+          channel.postMessage({ type: 'table_update', table: tableName, timestamp: Date.now() });
+        }
+        window.dispatchEvent(new CustomEvent('sharebox:table_update', { detail: { table: tableName, timestamp: Date.now() } }));
       }
-      window.dispatchEvent(new CustomEvent('sharebox:table_update', { detail: { table: tableName, timestamp: Date.now() } }));
     } catch (e) {
       console.error('Local table write error:', e);
     }
@@ -288,7 +290,7 @@ export const store = {
     // Save to local cache for instant multi-tab sync
     const users = getLocalTable('users');
     users[uid] = newUser;
-    setLocalTable('users', users);
+    setLocalTable('users', users, true);
 
     // Notify administrators of new user registration
     try {
@@ -317,7 +319,7 @@ export const store = {
         await supabase.from('notifications').insert(notifPayload);
         localNotifs[nId] = fromDB('notifications', notifPayload);
       }
-      setLocalTable('notifications', localNotifs);
+      setLocalTable('notifications', localNotifs, true);
     } catch (e) {
       console.warn('[Supabase] Admin notif notice:', e);
     }
@@ -404,7 +406,7 @@ export const store = {
     // Sync to local cache
     const users = getLocalTable('users');
     users[user.uid] = user;
-    setLocalTable('users', users);
+    setLocalTable('users', users, true);
 
     if (isBrowser) {
       sessionStorage.setItem('sharebox_session_uid', user.uid);
@@ -441,22 +443,28 @@ export const store = {
       const currentUid = sessionStorage.getItem('sharebox_session_uid') || localStorage.getItem('sharebox_session_uid');
 
       if (currentUid) {
-        // Fetch fresh profile from Supabase
+        const localUsers = getLocalTable('users');
+        const localU = localUsers[currentUid] || null;
+        if (localU) {
+          // Deliver cached user immediately to eliminate auth flicker / redirect lag
+          try { callback(localU, localU); } catch (e) {}
+        }
+
+        // Fetch fresh profile from Supabase in background
         supabase.from('users').select('*').eq('id', currentUid).maybeSingle()
-          .then(({ data }) => {
-            if (data) {
+          .then(({ data, error }) => {
+            if (!error && data) {
               const u = fromDB('users', data);
+              const uTable = getLocalTable('users');
+              uTable[u.uid] = u;
+              setLocalTable('users', uTable, false);
               callback(u, u);
-            } else {
-              const localUsers = getLocalTable('users');
-              const localU = localUsers[currentUid] || null;
-              callback(localU, localU);
+            } else if (!localU) {
+              callback(null, null);
             }
           })
           .catch(() => {
-            const localUsers = getLocalTable('users');
-            const localU = localUsers[currentUid] || null;
-            callback(localU, localU);
+            if (!localU) callback(null, null);
           });
       } else {
         callback(null, null);
@@ -465,24 +473,8 @@ export const store = {
       callback(null, null);
     }
 
-    // Subscribe to real-time profile updates on the users table
-    let userSub = null;
-    if (isBrowser) {
-      const subId = `usr_sync_${Math.random().toString(36).substring(2, 7)}`;
-      userSub = supabase.channel(subId)
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (payload) => {
-          const activeUid = sessionStorage.getItem('sharebox_session_uid') || localStorage.getItem('sharebox_session_uid');
-          if (activeUid && payload.new && payload.new.id === activeUid) {
-            const updated = fromDB('users', payload.new);
-            this._notifyAuth(updated);
-          }
-        })
-        .subscribe();
-    }
-
     return () => {
       this._authListeners = this._authListeners.filter(cb => cb !== callback);
-      if (userSub) supabase.removeChannel(userSub);
     };
   },
 
@@ -501,7 +493,10 @@ export const store = {
           const localTable = getLocalTable(colName);
           const localDoc = localTable[docId] || {};
           const parsed = fromDB(colName, data);
-          return { ...localDoc, ...parsed };
+          const merged = { ...localDoc, ...parsed };
+          localTable[docId] = merged;
+          setLocalTable(colName, localTable, false);
+          return merged;
         }
       } catch (e) {
         console.warn(`[Supabase] getDoc(${colName}, ${docId}) error:`, e.message);
@@ -545,7 +540,7 @@ export const store = {
     // Sync to local table for instant multi-tab speed
     const table = getLocalTable(colName);
     table[docId] = { ...table[docId], ...data, id: docId };
-    setLocalTable(colName, table);
+    setLocalTable(colName, table, true);
   },
 
   async updateDoc(colName, docId, data) {
@@ -585,7 +580,7 @@ export const store = {
     }
 
     table[docId] = { ...table[docId], ...data, updatedAt: new Date().toISOString() };
-    setLocalTable(colName, table);
+    setLocalTable(colName, table, true);
 
     // If a user account was approved, send approval notification
     if (colName === 'users' && data.status === 'approved' && prevStatus !== 'approved') {
@@ -614,7 +609,7 @@ export const store = {
         read: false,
         createdAt: new Date().toISOString()
       };
-      setLocalTable('notifications', notifs);
+      setLocalTable('notifications', notifs, true);
     }
   },
 
@@ -638,7 +633,7 @@ export const store = {
 
     const table = getLocalTable(colName);
     delete table[docId];
-    setLocalTable(colName, table);
+    setLocalTable(colName, table, true);
   },
 
   async getDocs(colName, filters = []) {
@@ -659,10 +654,10 @@ export const store = {
           if (data.length > 0) {
             const items = data.map(row => fromDB(colName, row));
 
-            // Sync into local cache
+            // Sync into local cache silently (NO broadcast loop)
             const local = getLocalTable(colName);
             items.forEach(it => { local[it.id] = { ...local[it.id], ...it }; });
-            setLocalTable(colName, local);
+            setLocalTable(colName, local, false);
 
             return items;
           } else if (colName === 'landmarks') {
@@ -687,37 +682,82 @@ export const store = {
     return Object.values(table);
   },
 
+  _realtimeChannels: new Map(),
+
   subscribe(colName, filterFn, callback) {
     const tableName = resolveTable(colName);
 
-    const run = async () => {
-      const items = await this.getDocs(colName);
-      let filtered = items;
-      if (filterFn) filtered = filtered.filter(filterFn);
-      callback(filtered);
-    };
-
-    run();
-
-    // Subscribe to Supabase Realtime changes
-    let realtimeChannel = null;
-    if (TABLE_COLUMNS[tableName]) {
-      const channelId = `realtime_${tableName}_${Math.random().toString(36).substring(2, 7)}`;
-      realtimeChannel = supabase.channel(channelId)
-        .on('postgres_changes', { event: '*', schema: 'public', table: tableName }, () => {
-          run();
-        })
-        .subscribe();
+    // 1. Instant Cache-First Delivery (0ms loading lag!)
+    const cachedTable = getLocalTable(colName);
+    const cachedItems = Object.values(cachedTable).map(r => fromDB(colName, r));
+    if (cachedItems.length > 0) {
+      let initialFiltered = cachedItems;
+      if (filterFn) {
+        try { initialFiltered = initialFiltered.filter(filterFn); } catch (e) {}
+      }
+      try { callback(initialFiltered); } catch (e) {}
     }
 
-    // Local tab sync listeners
-    const handler = (event) => {
+    // 2. Controlled Background Revalidation with Debounce (no hammering!)
+    let debounceTimer = null;
+    let isFetching = false;
+    let rerunRequested = false;
+
+    const run = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        if (isFetching) {
+          rerunRequested = true;
+          return;
+        }
+        isFetching = true;
+        try {
+          const items = await this.getDocs(colName);
+          let filtered = items;
+          if (filterFn) filtered = filtered.filter(filterFn);
+          callback(filtered);
+        } catch (e) {
+          console.warn(`[Store] Subscribe sync notice for ${colName}:`, e.message);
+        } finally {
+          isFetching = false;
+          if (rerunRequested) {
+            rerunRequested = false;
+            run();
+          }
+        }
+      }, 50);
+    };
+
+    // Run background fetch to get latest from Supabase
+    run();
+
+    // 3. Subscribe to Supabase Realtime changes (reusing channel per table)
+    let channelRef = null;
+    if (TABLE_COLUMNS[tableName]) {
+      const chKey = `sub_tbl_${tableName}`;
+      if (!this._realtimeChannels.has(chKey)) {
+        const newCh = supabase.channel(chKey)
+          .on('postgres_changes', { event: '*', schema: 'public', table: tableName }, () => {
+            run();
+          })
+          .subscribe();
+        this._realtimeChannels.set(chKey, { channel: newCh, count: 1 });
+        channelRef = chKey;
+      } else {
+        const entry = this._realtimeChannels.get(chKey);
+        entry.count++;
+        channelRef = chKey;
+      }
+    }
+
+    // 4. Local cross-tab & in-tab mutation listeners
+    const broadcastHandler = (event) => {
       if (event.data?.type === 'table_update' && event.data?.table === colName) {
         run();
       }
     };
     if (channel) {
-      channel.addEventListener('message', handler);
+      channel.addEventListener('message', broadcastHandler);
     }
     const localHandler = (event) => {
       if (event.detail?.table === colName) {
@@ -725,15 +765,21 @@ export const store = {
       }
     };
     if (isBrowser) {
-      window.addEventListener('storage', run);
       window.addEventListener('sharebox:table_update', localHandler);
     }
 
     return () => {
-      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
-      if (channel) channel.removeEventListener('message', handler);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (channelRef && this._realtimeChannels.has(channelRef)) {
+        const entry = this._realtimeChannels.get(channelRef);
+        entry.count--;
+        if (entry.count <= 0) {
+          supabase.removeChannel(entry.channel);
+          this._realtimeChannels.delete(channelRef);
+        }
+      }
+      if (channel) channel.removeEventListener('message', broadcastHandler);
       if (isBrowser) {
-        window.removeEventListener('storage', run);
         window.removeEventListener('sharebox:table_update', localHandler);
       }
     };

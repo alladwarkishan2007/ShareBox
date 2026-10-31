@@ -15,8 +15,8 @@ export function renderNavbar(currentUser, userData, unreadNotificationsCount = 0
           <!-- LEFT CORNER: Official College / University Main DYP Logo & Name (Compact & Small) -->
           <div class="nav-left-wrapper" style="display: flex; align-items: center;">
             <a href="#/" class="dyp-main-logo" title="D. Y. Patil College Group" style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; padding: 0.2rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid #d97706; background: #ffffff;">
-              <div class="dyp-emblem" style="display: flex; align-items: center; justify-content: center;">
-                <img src="https://imgs.search.brave.com/0w9ZP2VmCKtLaOLuLj0w34FkssYgIh9l-gWKkhqaSBk/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9jZG4u/YnJhbmRmZXRjaC5p/by9pZDlMWndKSFFB/L3cvNDAwL2gvNDAw/L3RoZW1lL2Rhcmsv/aWNvbi5qcGVnP2M9/MWJ4aWQ2NE11cDdh/Y3pld1NBWU1YJnQ9/MTc4MTg2NTUxMjI3/NQ" alt="DY Patil Logo" style="height: 28px; width: 28px; border-radius: 4px; object-fit: contain; display: block;">
+              <div class="dyp-emblem" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; background: #0f2952; color: #f59e0b; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+                DYP
               </div>
               <div class="dyp-logo-details" style="display: flex; flex-direction: column; justify-content: center; line-height: 1.1;">
                 <span class="dyp-brand-title" style="font-size: 0.85rem; font-weight: 800; letter-spacing: 0.06em; color: #0f2952; white-space: nowrap;">D Y PATIL</span>
@@ -57,8 +57,8 @@ export function renderNavbar(currentUser, userData, unreadNotificationsCount = 0
         <!-- LEFT CORNER: College Logo & Links (Compact DYP Logo) -->
         <div class="nav-left-wrapper flex items-center gap-4">
           <a href="#/dashboard" class="dyp-main-logo" title="D. Y. Patil College Group" style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; padding: 0.2rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid #d97706; background: #ffffff;">
-            <div class="dyp-emblem" style="display: flex; align-items: center; justify-content: center;">
-              <img src="https://imgs.search.brave.com/0w9ZP2VmCKtLaOLuLj0w34FkssYgIh9l-gWKkhqaSBk/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9jZG4u/YnJhbmRmZXRjaC5p/by9pZDlMWndKSFFB/L3cvNDAwL2gvNDAw/L3RoZW1lL2Rhcmsv/aWNvbi5qcGVnP2M9/MWJ4aWQ2NE11cDdh/Y3pld1NBWU1YJnQ9/MTc4MTg2NTUxMjI3/NQ" alt="DY Patil Logo" style="height: 28px; width: 28px; border-radius: 4px; object-fit: contain; display: block;">
+            <div class="dyp-emblem" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; background: #0f2952; color: #f59e0b; font-weight: 900; font-size: 11px; letter-spacing: 0.5px;">
+              DYP
             </div>
             <div class="dyp-logo-details" style="display: flex; flex-direction: column; justify-content: center; line-height: 1.1;">
               <span class="dyp-brand-title" style="font-size: 0.85rem; font-weight: 800; letter-spacing: 0.06em; color: #0f2952; white-space: nowrap;">D Y PATIL</span>

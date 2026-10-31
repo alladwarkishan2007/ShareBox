@@ -289,13 +289,9 @@ class RequestsService {
   }
 
   subscribeFeed(eventId, filters, callback) {
-    // Run an automatic purge check
-    this.purgeExpiredRequests();
-
     return store.subscribe('requests', (req) => {
-      // Automatically filter out and delete any expired open requests
+      // Automatically filter out any expired open requests
       if (req.status === REQUEST_STATUS.OPEN && req.neededBy && new Date(req.neededBy) < new Date()) {
-        store.deleteDoc('requests', req.id);
         return false;
       }
 
@@ -328,7 +324,6 @@ class RequestsService {
     return store.subscribe('requests', (req) => req.id === requestId, (items) => {
       const item = items[0] || null;
       if (item && item.status === REQUEST_STATUS.OPEN && new Date(item.neededBy) < new Date()) {
-        store.deleteDoc('requests', item.id);
         callback(null);
       } else {
         callback(item);
