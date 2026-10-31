@@ -37,29 +37,44 @@ export async function renderAdminDashboardPage(container, { user }) {
 
     container.innerHTML = `
       <div style="width: 100%; max-width: 100%; padding: var(--space-6) var(--space-6); padding-bottom: var(--space-12); box-sizing: border-box;">
-        <!-- Title Header -->
-        <div class="flex justify-between items-center" style="margin-bottom: var(--space-6);">
+        <!-- Liquid-Glass Title Header Banner -->
+        <div class="glass-header-box flex justify-between items-center flex-wrap gap-4" style="margin-bottom: var(--space-6);">
           <div>
-            <h1 class="text-xl font-bold">Admin Dashboard</h1>
-            <p class="text-sm text-muted">Manage campus users, requests, events, and dispute operations.</p>
+            <div class="flex items-center gap-2">
+              <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(37, 99, 235, 0.12); color: var(--color-primary); display: flex; align-items: center; justify-content: center;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+              </div>
+              <h1 class="text-xl font-bold" style="margin: 0; color: #0f172a;">Campus Administration Console</h1>
+            </div>
+            <p class="text-xs text-muted" style="margin-top: 4px; margin-bottom: 0;">Autonomous coordination for equipment directory, member approvals, campus events, and disputes.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="badge" style="background: rgba(37, 99, 235, 0.1); color: var(--color-primary); border: 1px solid rgba(37, 99, 235, 0.25); font-weight: 700; padding: 6px 12px; border-radius: 9999px;">
+              Admin Session Active
+            </span>
           </div>
         </div>
 
-        <!-- Navigation Tabs with Distinct Section Colors -->
-        <div class="flex gap-3 flex-wrap items-center" style="border-bottom: 2px solid var(--border-subtle); padding-bottom: var(--space-4); margin-bottom: var(--space-6);">
-          <button class="tab-btn btn ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}" data-tab="users" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'users' ? 'background: #2563eb; color: #ffffff; border-color: #2563eb; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);' : 'background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;'}">
-            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'users' ? '#ffffff' : '#2563eb'}; margin-right: 6px;"></span>Users (${approvedUsers.length})${pendingUsers.length > 0 ? ` <span class="badge" style="background: #f59e0b; color: #ffffff; font-size: 11px; padding: 2px 6px; border-radius: 10px; margin-left: 6px;">${pendingUsers.length} pending</span>` : ''}
+        <!-- Liquid-Glass Navigation Dock -->
+        <div class="liquid-glass-dock flex gap-2 flex-wrap items-center">
+          <button class="tab-btn btn liquid-glass-tab ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}" data-tab="users" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-lg); ${activeTab === 'users' ? 'background: #2563eb; color: #ffffff; border-color: #2563eb; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);' : 'background: rgba(255, 255, 255, 0.6); color: #1e40af; border-color: rgba(191, 219, 254, 0.7);'}">
+            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'users' ? '#ffffff' : '#2563eb'}; margin-right: 6px;"></span>Users (${approvedUsers.length})${pendingUsers.length > 0 ? ` <span class="badge" style="background: #f59e0b; color: #ffffff; font-size: 11px; padding: 2px 7px; border-radius: 10px; margin-left: 6px;">${pendingUsers.length} pending</span>` : ''}
           </button>
-          <button class="tab-btn btn ${activeTab === 'requests' ? 'btn-primary' : 'btn-secondary'}" data-tab="requests" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'requests' ? 'background: #059669; color: #ffffff; border-color: #059669; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);' : 'background: #ecfdf5; color: #047857; border-color: #a7f3d0;'}">
+          <button class="tab-btn btn liquid-glass-tab ${activeTab === 'requests' ? 'btn-primary' : 'btn-secondary'}" data-tab="requests" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-lg); ${activeTab === 'requests' ? 'background: #059669; color: #ffffff; border-color: #059669; box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);' : 'background: rgba(255, 255, 255, 0.6); color: #047857; border-color: rgba(167, 243, 208, 0.7);'}">
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'requests' ? '#ffffff' : '#059669'}; margin-right: 6px;"></span>Requests (${allRequests.length})
           </button>
-          <button class="tab-btn btn ${activeTab === 'events' ? 'btn-primary' : 'btn-secondary'}" data-tab="events" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'events' ? 'background: #7c3aed; color: #ffffff; border-color: #7c3aed; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);' : 'background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe;'}">
+          <button class="tab-btn btn liquid-glass-tab ${activeTab === 'events' ? 'btn-primary' : 'btn-secondary'}" data-tab="events" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-lg); ${activeTab === 'events' ? 'background: #7c3aed; color: #ffffff; border-color: #7c3aed; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);' : 'background: rgba(255, 255, 255, 0.6); color: #6d28d9; border-color: rgba(221, 214, 254, 0.7);'}">
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'events' ? '#ffffff' : '#7c3aed'}; margin-right: 6px;"></span>Events (${allEvents.length})
           </button>
-          <button class="tab-btn btn ${activeTab === 'reports' ? 'btn-primary' : 'btn-secondary'}" data-tab="reports" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'reports' ? 'background: #dc2626; color: #ffffff; border-color: #dc2626; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);' : 'background: #fef2f2; color: #b91c1c; border-color: #fecaca;'}">
+          <button class="tab-btn btn liquid-glass-tab ${activeTab === 'reports' ? 'btn-primary' : 'btn-secondary'}" data-tab="reports" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-lg); ${activeTab === 'reports' ? 'background: #dc2626; color: #ffffff; border-color: #dc2626; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);' : 'background: rgba(255, 255, 255, 0.6); color: #b91c1c; border-color: rgba(254, 202, 202, 0.7);'}">
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'reports' ? '#ffffff' : '#dc2626'}; margin-right: 6px;"></span>Disputes (${allReports.length})
           </button>
-          <button class="tab-btn btn ${activeTab === 'landmarks' ? 'btn-primary' : 'btn-secondary'}" data-tab="landmarks" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-md); ${activeTab === 'landmarks' ? 'background: #d97706; color: #ffffff; border-color: #d97706; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);' : 'background: #fffbeb; color: #b45309; border-color: #fde68a;'}">
+          <button class="tab-btn btn liquid-glass-tab ${activeTab === 'landmarks' ? 'btn-primary' : 'btn-secondary'}" data-tab="landmarks" style="padding: 0.65rem 1.25rem; font-size: 0.95rem; font-weight: 700; border-radius: var(--radius-lg); ${activeTab === 'landmarks' ? 'background: #d97706; color: #ffffff; border-color: #d97706; box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);' : 'background: rgba(255, 255, 255, 0.6); color: #b45309; border-color: rgba(253, 230, 138, 0.7);'}">
             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${activeTab === 'landmarks' ? '#ffffff' : '#d97706'}; margin-right: 6px;"></span>Landmarks (${landmarks.length})
           </button>
         </div>
@@ -67,13 +82,13 @@ export async function renderAdminDashboardPage(container, { user }) {
         <!-- Main Dynamic Tab Panel Container -->
         <div id="admin-tab-content"></div>
 
-        <!-- Database Utilities Footer -->
-        <div style="margin-top: var(--space-8); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+        <!-- Liquid-Glass Database Utilities Footer -->
+        <div class="liquid-glass-dock" style="margin-top: var(--space-8); padding: var(--space-4) var(--space-6);">
           <div class="flex justify-between items-center flex-wrap gap-3">
-            <span class="text-xs text-muted">System Database Actions</span>
+            <span class="text-xs text-muted font-medium">Platform Database Maintenance & Archival</span>
             <div class="flex gap-2">
-              <button id="export-db-btn" class="btn btn-secondary btn-sm">Export Database</button>
-              <button id="reset-db-btn" class="btn btn-danger btn-sm">Reset to Seed State</button>
+              <button id="export-db-btn" class="btn btn-secondary btn-sm glass-btn">Export Database</button>
+              <button id="reset-db-btn" class="btn btn-danger btn-sm" style="background: #dc2626; color: white;">Reset to Seed State</button>
             </div>
           </div>
         </div>
@@ -88,49 +103,52 @@ export async function renderAdminDashboardPage(container, { user }) {
     if (activeTab === 'users') {
       tabArea.innerHTML = `
         ${pendingUsers.length > 0 ? `
-          <div style="background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: var(--radius-md); padding: var(--space-3) var(--space-5); margin-bottom: var(--space-4); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div class="liquid-glass-alert flex justify-between items-center flex-wrap gap-3" style="padding: var(--space-4) var(--space-5); margin-bottom: var(--space-5);">
             <div>
-              <span style="font-weight: 700; color: #92400e;">⚠️ ${pendingUsers.length} Membership Request${pendingUsers.length > 1 ? 's' : ''} Awaiting Approval:</span>
-              <span class="text-xs" style="color: #b45309; margin-left: 6px;">New users must be approved by an administrator before they are added to the active user directory.</span>
+              <span style="font-weight: 800; color: #92400e;">⚠️ ${pendingUsers.length} Membership Request${pendingUsers.length > 1 ? 's' : ''} Awaiting Review:</span>
+              <span class="text-xs" style="color: #b45309; margin-left: 6px;">New campus applicants must be approved before access is granted.</span>
             </div>
-            <button id="quick-review-pending-btn" class="btn btn-xs" style="background: #f59e0b; color: white; font-weight: 700; border: none; padding: 5px 12px; cursor: pointer; border-radius: var(--radius-sm);">
+            <button id="quick-review-pending-btn" class="btn btn-xs" style="background: #f59e0b; color: white; font-weight: 700; border: none; padding: 6px 14px; cursor: pointer; border-radius: var(--radius-md); box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);">
               Review Pending (${pendingUsers.length})
             </button>
           </div>
         ` : ''}
 
-        <div class="card" style="border-top: 3px solid #2563eb;">
-          <div class="card-header flex justify-between items-center flex-wrap gap-3" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+        <div class="liquid-glass-panel" style="border-top: 3px solid #2563eb;">
+          <div class="flex justify-between items-center flex-wrap gap-3" style="background: rgba(248, 250, 252, 0.75); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(226, 232, 240, 0.8); padding: var(--space-4) var(--space-6);">
             <div class="flex items-center gap-3">
-              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #2563eb;"></span>
-              <h2 class="text-lg font-bold" style="color: #1e3a8a; margin: 0; font-size: 1.25rem;">Users Directory</h2>
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #2563eb; box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);"></span>
+              <h2 class="text-lg font-bold" style="color: #1e3a8a; margin: 0; font-size: 1.25rem;">Users & Credentials Directory</h2>
             </div>
             <div class="flex gap-2 items-center flex-wrap">
               <div style="position: relative; width: 260px;">
-                <input type="text" id="admin-user-search" class="form-input" placeholder="Search members..." value="${escapeHTML(userSearchTerm)}" style="padding: 0.4rem 0.75rem 0.4rem 2rem; font-size: var(--font-xs);">
+                <input type="text" id="admin-user-search" class="form-input" placeholder="Search members..." value="${escapeHTML(userSearchTerm)}" style="padding: 0.45rem 0.75rem 0.45rem 2rem; font-size: var(--font-xs); background: rgba(255, 255, 255, 0.85); border-radius: var(--radius-md);">
                 <svg style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               </div>
-              <button id="toggle-all-pwd-btn" class="btn btn-secondary btn-sm">
+              <button id="toggle-all-pwd-btn" class="btn btn-secondary btn-sm glass-btn">
                 ${showAllPasswords ? 'Hide Passwords' : 'Show Passwords'}
               </button>
             </div>
           </div>
 
           <!-- Quick Filters Bar -->
-          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle);">
-            <button class="user-filter-chip btn btn-xs ${userFilter === 'approved' ? 'btn-primary' : 'btn-secondary'}" data-filter="approved">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: rgba(248, 250, 252, 0.6); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(226, 232, 240, 0.8);">
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'approved' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="approved">
               Active Directory (${approvedUsers.length})
             </button>
-            <button class="user-filter-chip btn btn-xs ${userFilter === 'pending' ? 'btn-primary' : 'btn-secondary'}" data-filter="pending" style="${pendingUsers.length > 0 ? 'border: 1.5px solid #f59e0b; color: #92400e; font-weight: 700;' : ''}">
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'pending' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="pending" style="${pendingUsers.length > 0 ? 'border: 1.5px solid #f59e0b; color: #92400e; font-weight: 700;' : ''}">
               Pending Approvals (${pendingUsers.length})
             </button>
-            <button class="user-filter-chip btn btn-xs ${userFilter === 'admins' ? 'btn-primary' : 'btn-secondary'}" data-filter="admins">
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'rejected' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="rejected">
+              Disapproved (${allUsers.filter(u => u.status === 'rejected').length})
+            </button>
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'admins' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="admins">
               Admins & Organizers (${staffUsers})
             </button>
-            <button class="user-filter-chip btn btn-xs ${userFilter === 'restricted' ? 'btn-primary' : 'btn-secondary'}" data-filter="restricted">
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'restricted' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="restricted">
               Restricted (${restrictedUsers})
             </button>
-            <button class="user-filter-chip btn btn-xs ${userFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-filter="all">
+            <button class="user-filter-chip btn btn-xs ${userFilter === 'all' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-filter="all">
               All Accounts (${allUsers.length})
             </button>
             <span id="user-count-badge" class="text-xs text-muted" style="margin-left: auto;">
@@ -140,7 +158,7 @@ export async function renderAdminDashboardPage(container, { user }) {
 
           <!-- Users Table -->
           <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem; border: 1px solid var(--border-subtle);">
+            <table class="liquid-glass-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem;">
               <thead>
                 <tr style="border-bottom: 2px solid var(--border-subtle);">
                   <th style="padding: var(--space-4) var(--space-4); font-weight: 700; font-size: 0.92rem; border-right: 1px solid var(--border-subtle); width: 20%; background: #eff6ff; color: #1e40af;">
@@ -254,11 +272,15 @@ export async function renderAdminDashboardPage(container, { user }) {
                 </button>
               </td>
 
-              <!-- Status Badge (Pending vs Active vs Blocked) -->
+              <!-- Status Badge (Pending vs Active vs Blocked vs Disapproved) -->
               <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
                 ${isPending ? `
                   <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; border: 1px solid #fde68a;">
                     <span class="status-dot status-dot-warning" style="background: #f59e0b;"></span> Pending
+                  </span>
+                ` : u.status === 'rejected' ? `
+                  <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #b91c1c; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.3);">
+                    <span class="status-dot status-dot-danger"></span> Disapproved
                   </span>
                 ` : isBlocked ? `
                   <span class="badge" style="background: #fee2e2; color: #991b1b;">
@@ -283,6 +305,11 @@ export async function renderAdminDashboardPage(container, { user }) {
                   <button class="btn btn-secondary btn-xs edit-user-btn" data-uid="${escapeHTML(uid)}" title="Edit User & Credentials">
                     Edit
                   </button>
+                  ${u.status !== 'rejected' && u.role !== 'admin' ? `
+                    <button class="btn btn-xs reject-user-btn" data-uid="${escapeHTML(uid)}" title="Disapprove and permanently bar this email from re-registering" style="background: rgba(220, 38, 38, 0.12); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3); font-weight: 600; padding: 2px 7px;">
+                      Reject
+                    </button>
+                  ` : ''}
                   ${!isBlocked ? `
                     <button class="btn btn-xs block-user-btn" data-uid="${escapeHTML(uid)}" title="Block Access" style="background: #000000; color: #ffffff; border: 1px solid #000000; font-weight: 600;">
                       Block
@@ -316,6 +343,7 @@ export async function renderAdminDashboardPage(container, { user }) {
           // Status/role filter
           if (userFilter === 'approved' && u.status !== 'approved' && !(u.role === 'admin')) return false;
           if (userFilter === 'pending' && u.status !== 'pending') return false;
+          if (userFilter === 'rejected' && u.status !== 'rejected') return false;
           if (userFilter === 'admins' && !['admin', 'organizer'].includes(u.role)) return false;
           if (userFilter === 'restricted' && u.status !== 'blocked' && !(u.restrictedUntil && new Date(u.restrictedUntil) > new Date())) return false;
 
@@ -408,6 +436,41 @@ export async function renderAdminDashboardPage(container, { user }) {
               toast.error('Failed to approve member: ' + err.message);
               btn.disabled = false;
               btn.textContent = '✓ Approve';
+            }
+          });
+        });
+
+        // Reject / Disapprove User from Directory
+        tbody.querySelectorAll('.reject-user-btn').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const uid = btn.getAttribute('data-uid');
+            const target = allUsers.find(u => (u.uid || u.id) === uid);
+            if (!target) return;
+
+            const confirmed = confirm(`Are you sure you want to reject/disapprove ${target.name} (${target.email})?\n\nThis will revoke their access and permanently bar their email from registering again.`);
+            if (!confirmed) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Rejecting...';
+            try {
+              if (target.email) {
+                store.disapproveEmail(target.email);
+              }
+              await store.updateDoc('users', uid, { status: 'rejected' });
+              await notificationsService.create({
+                userId: uid,
+                type: 'account_rejected',
+                title: 'Membership Status Update',
+                message: 'Your ShareBox account has been disapproved by the administrator. Contact administration if you have questions.',
+                refId: null
+              });
+              toast.info(`Disapproved ${target.name}. Email permanently barred from re-registering.`);
+              target.status = 'rejected';
+              renderContent();
+            } catch (err) {
+              toast.error('Failed to reject user: ' + err.message);
+              btn.disabled = false;
+              btn.textContent = 'Reject';
             }
           });
         });
@@ -620,38 +683,38 @@ export async function renderAdminDashboardPage(container, { user }) {
       });
 
       tabArea.innerHTML = `
-        <div class="card" style="border-top: 3px solid #059669;">
-          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+        <div class="liquid-glass-panel" style="border-top: 3px solid #059669;">
+          <div class="flex justify-between items-center flex-wrap gap-2" style="background: rgba(248, 250, 252, 0.75); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(226, 232, 240, 0.8); padding: var(--space-4) var(--space-6);">
             <div class="flex items-center gap-3">
-              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #059669;"></span>
-              <h2 class="text-lg font-bold" style="color: #065f46; margin: 0; font-size: 1.25rem;">Campus Requests</h2>
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #059669; box-shadow: 0 0 10px rgba(5, 150, 105, 0.5);"></span>
+              <h2 class="text-lg font-bold" style="color: #065f46; margin: 0; font-size: 1.25rem;">Campus Equipment Requests</h2>
             </div>
-            <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">
+            <span class="badge" style="background: rgba(5, 150, 105, 0.1); color: #047857; border: 1px solid rgba(5, 150, 105, 0.25); font-weight: 700;">
               ${allRequests.length} Total
             </span>
           </div>
 
           <!-- Status Filter Pills Bar -->
-          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle);">
-            <button class="req-filter-btn btn btn-xs ${reqFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="all">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: rgba(248, 250, 252, 0.6); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(226, 232, 240, 0.8);">
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'all' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-req-filter="all">
               All (${allRequests.length})
             </button>
-            <button class="req-filter-btn btn btn-xs ${reqFilter === 'open' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="open">
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'open' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-req-filter="open">
               Open (${openReqs})
             </button>
-            <button class="req-filter-btn btn btn-xs ${reqFilter === 'accepted' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="accepted">
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'accepted' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-req-filter="accepted">
               In-Progress (${allRequests.filter(r => ['accepted', 'handed_over', 'returned'].includes(r.status)).length})
             </button>
-            <button class="req-filter-btn btn btn-xs ${reqFilter === 'completed' ? 'btn-primary' : 'btn-secondary'}" data-req-filter="completed">
+            <button class="req-filter-btn btn btn-xs ${reqFilter === 'completed' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-req-filter="completed">
               Completed (${completedReqs})
             </button>
           </div>
 
           <!-- Requests Table -->
           <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: var(--font-sm); border: 1px solid var(--border-subtle);">
+            <table class="liquid-glass-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: var(--font-sm);">
               <thead>
-                <tr style="background: #f1f5f9; border-bottom: 2px solid var(--border-subtle);">
+                <tr style="background: rgba(241, 245, 249, 0.8); border-bottom: 2px solid var(--border-subtle);">
                   <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 28%;">Equipment / Item Name</th>
                   <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 14%;">Category & Qty</th>
                   <th style="padding: var(--space-3) var(--space-4); font-weight: var(--fw-semibold); border-right: 1px solid var(--border-subtle); width: 20%;">Requester & Helper</th>
@@ -764,32 +827,34 @@ export async function renderAdminDashboardPage(container, { user }) {
     // ==========================================
     else if (activeTab === 'events') {
       tabArea.innerHTML = `
-        <div class="card" style="border-top: 3px solid #7c3aed;">
-          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+        <div class="liquid-glass-panel" style="border-top: 3px solid #7c3aed;">
+          <div class="flex justify-between items-center flex-wrap gap-2" style="background: rgba(248, 250, 252, 0.75); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(226, 232, 240, 0.8); padding: var(--space-4) var(--space-6);">
             <div class="flex items-center gap-3">
-              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #7c3aed;"></span>
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #7c3aed; box-shadow: 0 0 10px rgba(124, 58, 237, 0.5);"></span>
               <h2 class="text-lg font-bold" style="color: #5b21b6; margin: 0; font-size: 1.25rem;">Campus Events & Hackathons</h2>
             </div>
-            <button id="admin-create-event-btn" class="btn btn-primary btn-sm">+ Create Event</button>
+            <button id="admin-create-event-btn" class="btn btn-primary btn-sm" style="box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);">+ Create Event</button>
           </div>
-          <div class="card-body">
+          <div style="padding: var(--space-6);">
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4);">
               ${allEvents.length === 0 ? `
                 <div class="text-muted" style="grid-column: 1 / -1; text-align: center; padding: var(--space-8);">No campus events registered yet.</div>
               ` : allEvents.map(e => `
-                <div class="card" style="padding: var(--space-4); border: 1px solid var(--border-subtle);">
-                  <div class="flex justify-between items-start gap-2">
-                    <h4 class="text-sm font-bold" style="margin: 0;">${escapeHTML(e.title)}</h4>
-                    <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">${escapeHTML(e.type || 'Event')}</span>
+                <div class="liquid-glass-stat" style="padding: var(--space-4); border: 1px solid rgba(226, 232, 240, 0.8); border-radius: var(--radius-lg); text-align: left; display: flex; flex-direction: column; justify-content: space-between;">
+                  <div>
+                    <div class="flex justify-between items-start gap-2">
+                      <h4 class="text-sm font-bold" style="margin: 0; color: #1e293b;">${escapeHTML(e.title)}</h4>
+                      <span class="badge" style="background: rgba(124, 58, 237, 0.1); color: #7c3aed; border: 1px solid rgba(124, 58, 237, 0.25); font-weight: 600;">${escapeHTML(e.type || 'Event')}</span>
+                    </div>
+                    <p class="text-xs text-muted" style="margin: var(--space-2) 0; line-height: 1.5;">${escapeHTML(e.description || 'Community resource coordination.')}</p>
+                    <div class="flex flex-col gap-1 text-xs" style="background: rgba(255, 255, 255, 0.65); backdrop-filter: blur(8px); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); margin-bottom: var(--space-3); border: 1px solid rgba(226, 232, 240, 0.6);">
+                      <div><strong>Venue:</strong> ${escapeHTML(e.venue || 'Campus')}</div>
+                      <div><strong>Join Code:</strong> <span class="font-mono font-bold" style="color: #7c3aed;">${escapeHTML(e.joinCode || 'N/A')}</span></div>
+                      <div><strong>Participants:</strong> ${e.memberCount || 1} registered</div>
+                    </div>
                   </div>
-                  <p class="text-xs text-muted" style="margin: var(--space-2) 0; line-height: 1.5;">${escapeHTML(e.description || 'Community resource coordination.')}</p>
-                  <div class="flex flex-col gap-1 text-xs" style="background: var(--bg-subtle); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); margin-bottom: var(--space-3);">
-                    <div><strong>Venue:</strong> ${escapeHTML(e.venue || 'Campus')}</div>
-                    <div><strong>Join Code:</strong> <span class="font-mono font-bold">${escapeHTML(e.joinCode || 'N/A')}</span></div>
-                    <div><strong>Participants:</strong> ${e.memberCount || 1} registered</div>
-                  </div>
-                  <div class="flex justify-end gap-2" style="border-top: 1px solid var(--border-subtle); padding-top: var(--space-2);">
-                    <a href="#/events/${escapeHTML(e.id)}" class="btn btn-secondary btn-xs">View Feed</a>
+                  <div class="flex justify-end gap-2" style="border-top: 1px solid rgba(226, 232, 240, 0.6); padding-top: var(--space-2);">
+                    <a href="#/events/${escapeHTML(e.id)}" class="btn btn-secondary btn-xs glass-btn">View Feed</a>
                     <button class="btn btn-danger btn-xs delete-event-btn" data-id="${escapeHTML(e.id)}">Delete Event</button>
                   </div>
                 </div>
@@ -889,31 +954,31 @@ export async function renderAdminDashboardPage(container, { user }) {
       });
 
       tabArea.innerHTML = `
-        <div class="card" style="border-top: 3px solid #dc2626;">
-          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+        <div class="liquid-glass-panel" style="border-top: 3px solid #dc2626;">
+          <div class="flex justify-between items-center flex-wrap gap-2" style="background: rgba(248, 250, 252, 0.75); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(226, 232, 240, 0.8); padding: var(--space-4) var(--space-6);">
             <div class="flex items-center gap-3">
-              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #dc2626;"></span>
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #dc2626; box-shadow: 0 0 10px rgba(220, 38, 38, 0.5);"></span>
               <h2 class="text-lg font-bold" style="color: #991b1b; margin: 0; font-size: 1.25rem;">Equipment Damage Disputes</h2>
             </div>
-            <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">
+            <span class="badge" style="background: rgba(220, 38, 38, 0.1); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.25); font-weight: 700;">
               ${pendingDisputes} Pending Review
             </span>
           </div>
 
           <!-- Filter Pills Bar -->
-          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: var(--bg-subtle); border-bottom: 1px solid var(--border-subtle);">
-            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" data-rep-filter="all">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: var(--space-3) var(--space-5); background: rgba(248, 250, 252, 0.6); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(226, 232, 240, 0.8);">
+            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'all' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-rep-filter="all">
               All (${allReports.length})
             </button>
-            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'pending' ? 'btn-primary' : 'btn-secondary'}" data-rep-filter="pending">
+            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'pending' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-rep-filter="pending">
               Pending (${pendingDisputes})
             </button>
-            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'resolved' ? 'btn-primary' : 'btn-secondary'}" data-rep-filter="resolved">
+            <button class="rep-filter-btn btn btn-xs ${reportFilter === 'resolved' ? 'btn-primary' : 'btn-secondary glass-btn'}" data-rep-filter="resolved">
               Resolved (${allReports.filter(r => r.status === 'resolved').length})
             </button>
           </div>
 
-          <div class="card-body">
+          <div style="padding: var(--space-6);">
             ${filteredReports.length === 0 ? `
               <div class="text-center text-muted" style="padding: var(--space-8);">No damage reports match the current filter.</div>
             ` : `
@@ -921,11 +986,11 @@ export async function renderAdminDashboardPage(container, { user }) {
                 ${filteredReports.map(r => {
                   const isResolved = r.status === 'resolved';
                   return `
-                    <div class="card" style="padding: var(--space-4); border-left: 4px solid ${isResolved ? 'var(--color-success)' : 'var(--color-danger)'};">
+                    <div class="liquid-glass-stat" style="padding: var(--space-5); border-left: 4px solid ${isResolved ? 'var(--color-success)' : 'var(--color-danger)'}; border-radius: var(--radius-lg); text-align: left;">
                       <div class="flex justify-between items-start flex-wrap gap-2">
                         <div>
                           <div class="flex items-center gap-2">
-                            <span class="badge" style="background: ${isResolved ? 'var(--color-success)' : 'var(--color-danger)'}; color: white;">
+                            <span class="badge" style="background: ${isResolved ? 'var(--color-success)' : 'var(--color-danger)'}; color: white; font-weight: 700;">
                               Dispute #${escapeHTML(r.id)}
                             </span>
                             <span class="badge ${isResolved ? 'badge-status-completed' : 'badge-status-open'}">
@@ -940,20 +1005,20 @@ export async function renderAdminDashboardPage(container, { user }) {
                       </div>
 
                       <div style="margin: var(--space-3) 0; font-size: var(--font-sm); line-height: 1.5;">
-                        <div style="background: var(--bg-subtle); padding: var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                        <div style="background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(8px); padding: var(--space-3); border-radius: var(--radius-sm); border: 1px solid rgba(226, 232, 240, 0.7);">
                           <strong style="display: block; margin-bottom: 2px;">Owner's Damage Claim:</strong>
                           ${escapeHTML(r.description || 'No description filed')}
                         </div>
                         ${r.borrowerResponse ? `
-                          <div style="margin-top: var(--space-2); padding: var(--space-3); background: #f0fdf4; border-radius: var(--radius-sm); border-left: 3px solid var(--color-success); border: 1px solid #bbf7d0;">
+                          <div style="margin-top: var(--space-2); padding: var(--space-3); background: rgba(240, 253, 244, 0.85); backdrop-filter: blur(8px); border-radius: var(--radius-sm); border-left: 3px solid var(--color-success); border: 1px solid #bbf7d0;">
                             <strong style="color: var(--color-success); display: block; margin-bottom: 2px;">Borrower's Formal Rebuttal:</strong>
                             ${escapeHTML(r.borrowerResponse)}
                           </div>
                         ` : '<div class="text-xs text-muted" style="margin-top: 6px; font-style: italic;">Borrower has not submitted a rebuttal yet.</div>'}
                       </div>
 
-                      <div class="flex justify-end gap-2" style="border-top: 1px solid var(--border-subtle); padding-top: var(--space-3);">
-                        <a href="#/requests/${escapeHTML(r.requestId)}" class="btn btn-secondary btn-sm">View Request Details</a>
+                      <div class="flex justify-end gap-2" style="border-top: 1px solid rgba(226, 232, 240, 0.7); padding-top: var(--space-3);">
+                        <a href="#/requests/${escapeHTML(r.requestId)}" class="btn btn-secondary btn-sm glass-btn">View Request Details</a>
                         <button class="btn btn-primary btn-sm resolve-dispute-btn" data-id="${escapeHTML(r.id)}" data-req="${escapeHTML(r.requestId)}" data-borrower="${escapeHTML(r.borrowerId)}">
                           ${isResolved ? 'Update Decision' : 'Issue Decision'}
                         </button>
@@ -1048,26 +1113,28 @@ export async function renderAdminDashboardPage(container, { user }) {
     // ==========================================
     else if (activeTab === 'landmarks') {
       tabArea.innerHTML = `
-        <div class="card" style="border-top: 3px solid #d97706;">
-          <div class="card-header flex justify-between items-center flex-wrap gap-2" style="background: #f8fafc; border-bottom: 1px solid var(--border-subtle); padding: var(--space-4) var(--space-6);">
+        <div class="liquid-glass-panel" style="border-top: 3px solid #d97706;">
+          <div class="flex justify-between items-center flex-wrap gap-2" style="background: rgba(248, 250, 252, 0.75); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(226, 232, 240, 0.8); padding: var(--space-4) var(--space-6);">
             <div class="flex items-center gap-3">
-              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #d97706;"></span>
+              <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #d97706; box-shadow: 0 0 10px rgba(217, 119, 6, 0.5);"></span>
               <h2 class="text-lg font-bold" style="color: #92400e; margin: 0; font-size: 1.25rem;">Campus Meeting Landmarks</h2>
             </div>
-            <button id="add-landmark-btn" class="btn btn-primary btn-sm">+ Add Landmark</button>
+            <button id="add-landmark-btn" class="btn btn-primary btn-sm" style="box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);">+ Add Landmark</button>
           </div>
-          <div class="card-body">
+          <div style="padding: var(--space-6);">
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3);">
               ${landmarks.map(lm => `
-                <div class="card" style="padding: var(--space-4); border: 1px solid var(--border-subtle);">
-                  <div class="flex justify-between items-start gap-2">
-                    <h4 class="text-sm font-bold" style="margin: 0;">${escapeHTML(lm.name)}</h4>
-                    <span class="badge" style="background: var(--bg-subtle); border: 1px solid var(--border-subtle);">${escapeHTML(lm.category)}</span>
+                <div class="liquid-glass-stat" style="padding: var(--space-4); border: 1px solid rgba(226, 232, 240, 0.8); border-radius: var(--radius-lg); text-align: left; display: flex; flex-direction: column; justify-content: space-between;">
+                  <div>
+                    <div class="flex justify-between items-start gap-2">
+                      <h4 class="text-sm font-bold" style="margin: 0; color: #1e293b;">${escapeHTML(lm.name)}</h4>
+                      <span class="badge" style="background: rgba(217, 119, 6, 0.1); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.25); font-weight: 600;">${escapeHTML(lm.category)}</span>
+                    </div>
+                    <div class="text-xs text-muted" style="margin-top: var(--space-2); font-family: monospace;">
+                      Lat: ${lm.lat}, Lng: ${lm.lng}
+                    </div>
                   </div>
-                  <div class="text-xs text-muted" style="margin-top: var(--space-2); font-family: monospace;">
-                    Lat: ${lm.lat}, Lng: ${lm.lng}
-                  </div>
-                  <div class="flex justify-end gap-1" style="margin-top: var(--space-3); border-top: 1px solid var(--border-subtle); padding-top: var(--space-2);">
+                  <div class="flex justify-end gap-1" style="margin-top: var(--space-3); border-top: 1px solid rgba(226, 232, 240, 0.6); padding-top: var(--space-2);">
                     <button class="btn btn-danger btn-xs delete-lm-btn" data-id="${escapeHTML(lm.id)}">Delete</button>
                   </div>
                 </div>

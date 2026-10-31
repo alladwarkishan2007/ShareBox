@@ -17,7 +17,7 @@ export async function renderLandingPage(container, { user } = {}) {
         </p>
         <div class="hero-actions" style="display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;">
           ${user ? `
-            <a href="#/dashboard" class="btn btn-primary btn-lg">Go to Feed & Dashboard</a>
+            <a href="#/dashboard" class="btn btn-primary btn-lg btn-go-to-feed">Go to Feed & Dashboard</a>
             <a href="#/requests/new" class="btn btn-secondary btn-lg">+ Post Request</a>
           ` : `
             <a href="#/signup" class="btn btn-primary btn-lg">Join Campus Platform</a>

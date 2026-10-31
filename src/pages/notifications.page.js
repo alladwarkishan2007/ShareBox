@@ -94,7 +94,7 @@ export async function renderNotificationsPage(container, { user }) {
   });
 
   // Subscribe to live notification updates
-  notificationsService.subscribeNotifications(user.uid, (notifs) => {
+  notificationsService.subscribeNotifications(user.uid, async (notifs) => {
     listContainer.innerHTML = '';
 
     if (notifs.length === 0) {
@@ -113,9 +113,21 @@ export async function renderNotificationsPage(container, { user }) {
       return;
     }
 
+    // Check applicant status so approved/rejected users don't show pending action buttons
+    let allUsers = [];
+    try {
+      allUsers = await store.getDocs('users');
+    } catch (e) {}
+    const userMap = new Map();
+    allUsers.forEach(u => userMap.set(u.uid || u.id, u));
+
     notifs.forEach(n => {
       const card = document.createElement('div');
       card.className = `card glass-card ${!n.read ? 'glass-card-unread' : ''}`;
+
+      const targetApplicant = n.refId ? userMap.get(n.refId) : null;
+      const isAlreadyApproved = targetApplicant && targetApplicant.status === 'approved';
+      const isAlreadyRejected = targetApplicant && targetApplicant.status === 'rejected';
 
       card.innerHTML = `
         <div class="card-body flex justify-between items-start gap-4">
@@ -136,21 +148,41 @@ export async function renderNotificationsPage(container, { user }) {
 
           <div class="flex flex-col gap-1 items-end flex-shrink-0">
             ${n.type === 'account_approved' ? `
-              <a href="#/dashboard" class="btn btn-success btn-sm notif-link glass-btn" data-id="${escapeHTML(n.id)}" style="background: rgba(22, 163, 74, 0.15); color: #15803d; border: 1px solid rgba(22, 163, 74, 0.3); font-weight: 700;">
+              <a href="#/dashboard" class="btn btn-success btn-sm notif-link glass-btn btn-go-to-feed-sm" data-id="${escapeHTML(n.id)}" style="background: rgba(22, 163, 74, 0.15); color: #15803d; border: 1px solid rgba(22, 163, 74, 0.3); font-weight: 700;">
                 Go to Feed
               </a>
             ` : n.type === 'new_user_registration' ? `
-              <div class="flex gap-2 items-center flex-wrap justify-end action-btn-group">
-                <button class="btn btn-success btn-sm approve-member-btn glass-btn" data-uid="${escapeHTML(n.refId || '')}" data-notif-id="${escapeHTML(n.id)}" style="background: #16a34a; color: white; font-weight: 700;">
-                  ✓ Approve
-                </button>
-                <button class="btn btn-danger btn-sm disapprove-member-btn glass-btn" data-uid="${escapeHTML(n.refId || '')}" data-notif-id="${escapeHTML(n.id)}" style="background: #dc2626; color: white; font-weight: 700;">
-                  ✕ Disapprove
-                </button>
-                <a href="#/admin" class="btn btn-secondary btn-sm notif-link glass-btn" data-id="${escapeHTML(n.id)}">
-                  Directory
-                </a>
-              </div>
+              ${isAlreadyApproved ? `
+                <div class="flex gap-2 items-center flex-wrap justify-end action-btn-group">
+                  <span class="badge" style="background: rgba(22, 163, 74, 0.15); color: #15803d; font-weight: 700; padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(22, 163, 74, 0.3);">
+                    ✓ Approved
+                  </span>
+                  <a href="#/admin" class="btn btn-secondary btn-sm notif-link glass-btn" data-id="${escapeHTML(n.id)}">
+                    Directory
+                  </a>
+                </div>
+              ` : isAlreadyRejected ? `
+                <div class="flex gap-2 items-center flex-wrap justify-end action-btn-group">
+                  <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #dc2626; font-weight: 700; padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                    ✕ Disapproved
+                  </span>
+                  <a href="#/admin" class="btn btn-secondary btn-sm notif-link glass-btn" data-id="${escapeHTML(n.id)}">
+                    Directory
+                  </a>
+                </div>
+              ` : `
+                <div class="flex gap-2 items-center flex-wrap justify-end action-btn-group">
+                  <button class="btn btn-success btn-sm approve-member-btn glass-btn" data-uid="${escapeHTML(n.refId || '')}" data-notif-id="${escapeHTML(n.id)}" style="background: #16a34a; color: white; font-weight: 700;">
+                    ✓ Approve
+                  </button>
+                  <button class="btn btn-danger btn-sm disapprove-member-btn glass-btn" data-uid="${escapeHTML(n.refId || '')}" data-notif-id="${escapeHTML(n.id)}" style="background: #dc2626; color: white; font-weight: 700;">
+                    ✕ Disapprove
+                  </button>
+                  <a href="#/admin" class="btn btn-secondary btn-sm notif-link glass-btn" data-id="${escapeHTML(n.id)}">
+                    Directory
+                  </a>
+                </div>
+              `}
             ` : n.refId ? `
               <a href="#/requests/${escapeHTML(n.refId)}" class="btn btn-secondary btn-sm notif-link glass-btn" data-id="${escapeHTML(n.id)}">
                 View
