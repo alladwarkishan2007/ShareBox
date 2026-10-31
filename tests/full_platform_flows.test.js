@@ -31,6 +31,21 @@ async function runFullVerification() {
   console.log('   SHAREBOX PLATFORM END-TO-END VERIFICATION SUITE    ');
   console.log('======================================================\n');
 
+  // Pre-test cleanup for idempotency
+  for (const email of ['sarah.connor@gmail.com', 'kyle.reese@yahoo.com', 'john.matrix@college.edu']) {
+    const { data: u } = await store.supabase.from('users').select('id').eq('email', email).maybeSingle();
+    if (u) {
+      await store.supabase.from('notifications').delete().eq('user_id', u.id);
+      await store.supabase.from('requests').delete().eq('requester_id', u.id);
+      await store.supabase.from('requests').delete().eq('helper_id', u.id);
+      await store.supabase.from('event_members').delete().eq('user_id', u.id);
+      await store.supabase.from('events').delete().eq('created_by', u.id);
+      await store.supabase.from('damage_reports').delete().eq('owner_id', u.id);
+      await store.supabase.from('damage_reports').delete().eq('borrower_id', u.id);
+      await store.supabase.from('users').delete().eq('id', u.id);
+    }
+  }
+
   // Scenario 1: Standard Valid Email Registration with AIDS Department
   console.log('[Scenario 1] Standard Valid Email Registration & AIDS Department');
   assert(isValidEmail('sarah.connor@gmail.com'), 'Validates student gmail email address');

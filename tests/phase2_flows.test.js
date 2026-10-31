@@ -27,6 +27,19 @@ function assert(condition, message) {
 async function runTests() {
   console.log('\n--- Running Phase 2 Core Feature Tests ---\n');
 
+  // Pre-test cleanup for idempotency
+  for (const email of ['alice@gmail.com', 'bob.johnson@outlook.com']) {
+    const { data: u } = await store.supabase.from('users').select('id').eq('email', email).maybeSingle();
+    if (u) {
+      await store.supabase.from('notifications').delete().eq('user_id', u.id);
+      await store.supabase.from('requests').delete().eq('requester_id', u.id);
+      await store.supabase.from('requests').delete().eq('helper_id', u.id);
+      await store.supabase.from('event_members').delete().eq('user_id', u.id);
+      await store.supabase.from('events').delete().eq('created_by', u.id);
+      await store.supabase.from('users').delete().eq('id', u.id);
+    }
+  }
+
   // Test 1: Standard Email Format Validation
   console.log('[Test 1] Standard Email Format Validation');
   assert(isValidEmail('student@college.edu'), 'Accepts valid college email');

@@ -1,6 +1,6 @@
 // ShareBox Unified Supabase Data Layer Adapter
-// Connects to live Supabase backend (PostgreSQL + Auth + Realtime + Storage)
-// with seamless fallback to local sync/in-memory cache for ultra-fast, robust offline resilience.
+// Connects to live Supabase backend (PostgreSQL + Realtime + Storage)
+// with seamless multi-tab BroadcastChannel and local cache for instant offline resilience.
 
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../config/supabase.js';
 import { DEFAULT_LANDMARKS } from '../config/constants.js';
@@ -14,6 +14,21 @@ export const isLocalMode = false;
 const channel = isBrowser && window.BroadcastChannel
   ? new BroadcastChannel('sharebox_realtime_sync')
   : null;
+
+// Supabase Realtime channel for WebRTC call signaling across multiple machines/browsers
+const signalingChannel = supabase ? supabase.channel('sharebox_signaling') : null;
+if (signalingChannel) {
+  signalingChannel
+    .on('broadcast', { event: 'call_signal' }, (payload) => {
+      if (payload && payload.payload) {
+        const { colName, docId, data } = payload.payload;
+        const local = getLocalTable(colName);
+        local[docId] = data;
+        setLocalTable(colName, local);
+      }
+    })
+    .subscribe();
+}
 
 // In-Memory Storage for non-browser or test runners
 const inMemoryStore = {};
@@ -53,9 +68,9 @@ const TABLE_COLUMNS = {
   users: new Set(['id', 'email', 'password', 'name', 'role', 'status', 'department', 'year', 'phone', 'photo_url', 'warnings_count', 'restricted_until', 'created_at', 'updated_at']),
   events: new Set(['id', 'title', 'description', 'type', 'venue', 'join_code', 'rules', 'created_by', 'creator_name', 'is_active', 'member_count', 'start_at', 'end_at', 'created_at']),
   event_members: new Set(['id', 'event_id', 'user_id', 'role', 'joined_at']),
-  requests: new Set(['id', 'status', 'photo_url', 'created_at', 'updated_at', 'description', 'type', 'event_id', 'requester_id', 'requester_name', 'helper_id', 'helper_name', 'item_name', 'category', 'quantity', 'urgency', 'needed_by', 'expected_return_at', 'meeting_point', 'handover_condition', 'return_condition']),
+  requests: new Set(['id', 'status', 'photo_url', 'created_at', 'updated_at', 'description', 'type', 'event_id', 'requester_id', 'requester_name', 'helper_id', 'helper_name', 'item_name', 'category', 'quantity', 'urgency', 'needed_by', 'expected_return_at', 'meeting_point', 'handover_condition', 'return_condition', 'completed_at']),
   messages: new Set(['id', 'request_id', 'sender_id', 'sender_name', 'text', 'image_url', 'seen_by', 'created_at']),
-  damage_reports: new Set(['id', 'status', 'created_at', 'description', 'event_id', 'owner_id', 'owner_name', 'borrower_id', 'photos', 'borrower_response', 'decision', 'responded_at']),
+  damage_reports: new Set(['id', 'status', 'created_at', 'description', 'event_id', 'request_id', 'owner_id', 'owner_name', 'borrower_id', 'photos', 'borrower_response', 'decision', 'responded_at']),
   landmarks: new Set(['id', 'name', 'category', 'lat', 'lng', 'order', 'created_at']),
   notifications: new Set(['id', 'user_id', 'type', 'ref_id', 'title', 'message', 'read', 'created_at'])
 };
@@ -65,6 +80,17 @@ function resolveTable(colName) {
   if (colName === 'damageReports') return 'damage_reports';
   if (colName.startsWith('messages_')) return 'messages';
   return colName;
+}
+
+function safeParseJSON(val) {
+  if (typeof val === 'string' && (val.startsWith('{') || val.startsWith('['))) {
+    try {
+      return JSON.parse(val);
+    } catch (e) {
+      return val;
+    }
+  }
+  return val;
 }
 
 // Convert Supabase snake_case row to frontend camelCase object
@@ -100,18 +126,21 @@ function fromDB(colName, row) {
   if ('item_name' in out) out.itemName = out.item_name;
   if ('needed_by' in out) out.neededBy = out.needed_by;
   if ('expected_return_at' in out) out.expectedReturnAt = out.expected_return_at;
-  if ('meeting_point' in out) out.meetingPoint = out.meeting_point;
-  if ('handover_condition' in out) out.handoverCondition = out.handover_condition;
-  if ('return_condition' in out) out.returnCondition = out.return_condition;
+  if ('completed_at' in out) out.completedAt = out.completed_at;
+  if ('meeting_point' in out) out.meetingPoint = safeParseJSON(out.meeting_point);
+  if ('handover_condition' in out) out.handoverCondition = safeParseJSON(out.handover_condition);
+  if ('return_condition' in out) out.returnCondition = safeParseJSON(out.return_condition);
   if ('request_id' in out) out.requestId = out.request_id;
   if ('sender_id' in out) out.senderId = out.sender_id;
   if ('sender_name' in out) out.senderName = out.sender_name;
   if ('image_url' in out) out.imageURL = out.image_url;
-  if ('seen_by' in out) out.seenBy = out.seen_by;
+  if ('seen_by' in out) out.seenBy = safeParseJSON(out.seen_by);
   if ('owner_id' in out) out.ownerId = out.owner_id;
   if ('owner_name' in out) out.ownerName = out.owner_name;
   if ('borrower_id' in out) out.borrowerId = out.borrower_id;
   if ('borrower_response' in out) out.borrowerResponse = out.borrower_response;
+  if ('decision' in out) out.decision = safeParseJSON(out.decision);
+  if ('photos' in out) out.photos = safeParseJSON(out.photos);
   if ('responded_at' in out) out.respondedAt = out.responded_at;
   if ('ref_id' in out) out.refId = out.ref_id;
 
@@ -134,6 +163,7 @@ function toDB(colName, data) {
   if ('restrictedUntil' in out) { out.restricted_until = out.restrictedUntil; delete out.restrictedUntil; }
   if ('createdAt' in out) { out.created_at = out.createdAt; delete out.createdAt; }
   if ('updatedAt' in out) { out.updated_at = out.updatedAt; delete out.updatedAt; }
+  if ('completedAt' in out) { out.completed_at = out.completedAt; delete out.completedAt; }
   if ('joinCode' in out) { out.join_code = out.joinCode; delete out.joinCode; }
   if ('createdBy' in out) { out.created_by = out.createdBy; delete out.createdBy; }
   if ('creatorName' in out) { out.creator_name = out.creatorName; delete out.creatorName; }
@@ -151,9 +181,21 @@ function toDB(colName, data) {
   if ('itemName' in out) { out.item_name = out.itemName; delete out.itemName; }
   if ('neededBy' in out) { out.needed_by = out.neededBy; delete out.neededBy; }
   if ('expectedReturnAt' in out) { out.expected_return_at = out.expectedReturnAt; delete out.expectedReturnAt; }
-  if ('meetingPoint' in out) { out.meeting_point = out.meetingPoint; delete out.meetingPoint; }
-  if ('handoverCondition' in out) { out.handover_condition = out.handoverCondition; delete out.handoverCondition; }
-  if ('returnCondition' in out) { out.return_condition = out.returnCondition; delete out.returnCondition; }
+  if ('meetingPoint' in out) {
+    out.meeting_point = typeof out.meetingPoint === 'object' && out.meetingPoint !== null ? JSON.stringify(out.meetingPoint) : out.meetingPoint;
+    delete out.meetingPoint;
+  }
+  if ('handoverCondition' in out) {
+    out.handover_condition = typeof out.handoverCondition === 'object' && out.handoverCondition !== null ? JSON.stringify(out.handoverCondition) : out.handoverCondition;
+    delete out.handoverCondition;
+  }
+  if ('returnCondition' in out) {
+    out.return_condition = typeof out.returnCondition === 'object' && out.returnCondition !== null ? JSON.stringify(out.returnCondition) : out.returnCondition;
+    delete out.returnCondition;
+  }
+  if ('decision' in out && typeof out.decision === 'object' && out.decision !== null) {
+    out.decision = JSON.stringify(out.decision);
+  }
   if ('requestId' in out) { out.request_id = out.requestId; delete out.requestId; }
   if ('senderId' in out) { out.sender_id = out.senderId; delete out.senderId; }
   if ('senderName' in out) { out.sender_name = out.senderName; delete out.senderName; }
@@ -187,7 +229,7 @@ function toDB(colName, data) {
   return out;
 }
 
-// Unified Store Methods powered by Supabase
+// Unified Store Methods powered directly by Supabase
 export const store = {
   isLocalMode,
   supabase,
@@ -214,19 +256,7 @@ export const store = {
       if (e.message && e.message.includes('already exists')) throw e;
     }
 
-    // Attempt Supabase Auth registration
-    let authUser = null;
-    try {
-      const { data: authData } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: password || 'password123'
-      });
-      authUser = authData?.user;
-    } catch (e) {
-      // Non-blocking if email confirmation is enabled or already registered
-    }
-
-    const uid = authUser?.id || 'usr_' + Math.random().toString(36).substring(2, 9);
+    const uid = 'usr_' + Math.random().toString(36).substring(2, 9);
     const status = userData.role === 'admin' ? 'approved' : 'approved';
 
     const dbUserPayload = {
@@ -246,10 +276,10 @@ export const store = {
       updated_at: new Date().toISOString()
     };
 
-    // Save to Supabase
+    // Save user directly to Supabase users table
     const { error: insertError } = await supabase.from('users').upsert(dbUserPayload);
     if (insertError) {
-      console.warn('[Supabase] User insert fallback notice:', insertError.message);
+      console.warn('[Supabase] User insert notice:', insertError.message);
     }
 
     const newUser = fromDB('users', dbUserPayload);
@@ -284,12 +314,12 @@ export const store = {
         });
       }
     } catch (e) {
-      console.warn('[Supabase] Admin notif error:', e);
+      console.warn('[Supabase] Admin notif notice:', e);
     }
 
     if (isBrowser) {
       sessionStorage.setItem('sharebox_session_uid', uid);
-      localStorage.removeItem('sharebox_session_uid');
+      localStorage.setItem('sharebox_session_uid', uid);
     }
     this._notifyAuth(newUser);
     return newUser;
@@ -305,7 +335,7 @@ export const store = {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // Query user from Supabase
+    // Query user directly from Supabase users table
     let userRow = null;
     try {
       const { data, error } = await supabase
@@ -352,7 +382,7 @@ export const store = {
       }
     }
 
-    // Check password if set
+    // Check password
     if (userRow.password && userRow.password !== password) {
       throw new Error('The password you entered is incorrect. Please verify your login details and try again.');
     } else if (!userRow.password) {
@@ -364,16 +394,6 @@ export const store = {
       throw new Error('This account has been blocked by college administration.');
     }
 
-    // Attempt Supabase Auth login to establish auth session
-    try {
-      await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password
-      });
-    } catch (e) {
-      // Non-blocking if email unverified in Supabase Auth
-    }
-
     const user = fromDB('users', userRow);
 
     // Sync to local cache
@@ -383,17 +403,13 @@ export const store = {
 
     if (isBrowser) {
       sessionStorage.setItem('sharebox_session_uid', user.uid);
-      localStorage.removeItem('sharebox_session_uid');
+      localStorage.setItem('sharebox_session_uid', user.uid);
     }
     this._notifyAuth(user);
     return user;
   },
 
   async logout() {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {}
-
     if (isBrowser) {
       sessionStorage.removeItem('sharebox_session_uid');
       localStorage.removeItem('sharebox_session_uid');
@@ -403,11 +419,7 @@ export const store = {
 
   async resetPassword(email) {
     if (!email) return;
-    try {
-      await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
-    } catch (e) {
-      console.info(`[Supabase Auth] Password reset request for ${email}`);
-    }
+    console.info(`[ShareBox] Password reset requested for ${email}`);
   },
 
   _authListeners: [],
@@ -421,8 +433,7 @@ export const store = {
     this._authListeners.push(callback);
 
     if (isBrowser) {
-      localStorage.removeItem('sharebox_session_uid');
-      const currentUid = sessionStorage.getItem('sharebox_session_uid');
+      const currentUid = sessionStorage.getItem('sharebox_session_uid') || localStorage.getItem('sharebox_session_uid');
 
       if (currentUid) {
         // Fetch fresh profile from Supabase
@@ -449,24 +460,24 @@ export const store = {
       callback(null, null);
     }
 
-    // Also listen to Supabase Auth state changes
-    const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        try {
-          const { data } = await supabase.from('users').select('*').eq('id', session.user.id).maybeSingle();
-          if (data) {
-            const u = fromDB('users', data);
-            callback(u, u);
+    // Subscribe to real-time profile updates on the users table
+    let userSub = null;
+    if (isBrowser) {
+      const subId = `usr_sync_${Math.random().toString(36).substring(2, 7)}`;
+      userSub = supabase.channel(subId)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (payload) => {
+          const activeUid = sessionStorage.getItem('sharebox_session_uid') || localStorage.getItem('sharebox_session_uid');
+          if (activeUid && payload.new && payload.new.id === activeUid) {
+            const updated = fromDB('users', payload.new);
+            this._notifyAuth(updated);
           }
-        } catch (e) {}
-      } else if (event === 'SIGNED_OUT') {
-        callback(null, null);
-      }
-    });
+        })
+        .subscribe();
+    }
 
     return () => {
       this._authListeners = this._authListeners.filter(cb => cb !== callback);
-      authSub?.subscription?.unsubscribe();
+      if (userSub) supabase.removeChannel(userSub);
     };
   },
 
@@ -484,7 +495,8 @@ export const store = {
         if (!error && data) {
           const localTable = getLocalTable(colName);
           const localDoc = localTable[docId] || {};
-          return { ...localDoc, ...fromDB(colName, data) };
+          const parsed = fromDB(colName, data);
+          return { ...localDoc, ...parsed };
         }
       } catch (e) {
         console.warn(`[Supabase] getDoc(${colName}, ${docId}) error:`, e.message);
@@ -514,7 +526,18 @@ export const store = {
       }
     }
 
-    // Sync to local table for multi-tab speed
+    // For WebRTC signaling (calls, candidates), broadcast via Supabase Realtime channel
+    if (colName === 'calls' || colName.startsWith('candidates_')) {
+      if (signalingChannel) {
+        signalingChannel.send({
+          type: 'broadcast',
+          event: 'call_signal',
+          payload: { colName, docId, data: { ...data, id: docId } }
+        }).catch(() => {});
+      }
+    }
+
+    // Sync to local table for instant multi-tab speed
     const table = getLocalTable(colName);
     table[docId] = { ...table[docId], ...data, id: docId };
     setLocalTable(colName, table);
@@ -530,7 +553,7 @@ export const store = {
     const table = getLocalTable(colName);
     const prevStatus = table[docId]?.status;
 
-    if (TABLE_COLUMNS[tableName]) {
+    if (TABLE_COLUMNS[tableName] && Object.keys(dbPayload).length > 0) {
       try {
         const { error } = await supabase
           .from(tableName)
@@ -542,6 +565,17 @@ export const store = {
         }
       } catch (e) {
         console.warn(`[Supabase] updateDoc(${colName}) error:`, e.message);
+      }
+    }
+
+    // Broadcast WebRTC signaling updates
+    if (colName === 'calls' || colName.startsWith('candidates_')) {
+      if (signalingChannel) {
+        signalingChannel.send({
+          type: 'broadcast',
+          event: 'call_signal',
+          payload: { colName, docId, data: { ...table[docId], ...data, id: docId } }
+        }).catch(() => {});
       }
     }
 
@@ -628,6 +662,8 @@ export const store = {
             return items;
           } else if (colName === 'landmarks') {
             return DEFAULT_LANDMARKS;
+          } else {
+            return [];
           }
         }
       } catch (e) {
@@ -659,12 +695,15 @@ export const store = {
     run();
 
     // Subscribe to Supabase Realtime changes
-    const channelId = `realtime_${tableName}_${Math.random().toString(36).substring(2, 7)}`;
-    const realtimeChannel = supabase.channel(channelId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: tableName }, () => {
-        run();
-      })
-      .subscribe();
+    let realtimeChannel = null;
+    if (TABLE_COLUMNS[tableName]) {
+      const channelId = `realtime_${tableName}_${Math.random().toString(36).substring(2, 7)}`;
+      realtimeChannel = supabase.channel(channelId)
+        .on('postgres_changes', { event: '*', schema: 'public', table: tableName }, () => {
+          run();
+        })
+        .subscribe();
+    }
 
     // Local tab sync listeners
     const handler = (event) => {
@@ -686,7 +725,7 @@ export const store = {
     }
 
     return () => {
-      supabase.removeChannel(realtimeChannel);
+      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
       if (channel) channel.removeEventListener('message', handler);
       if (isBrowser) {
         window.removeEventListener('storage', run);

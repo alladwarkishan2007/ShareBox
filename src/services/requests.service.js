@@ -306,8 +306,8 @@ class RequestsService {
 
       if (filters?.search) {
         const query = filters.search.toLowerCase();
-        const matchesName = req.itemName.toLowerCase().includes(query);
-        const matchesDesc = req.description.toLowerCase().includes(query);
+        const matchesName = (req.itemName || '').toLowerCase().includes(query);
+        const matchesDesc = (req.description || '').toLowerCase().includes(query);
         if (!matchesName && !matchesDesc) return false;
       }
 
