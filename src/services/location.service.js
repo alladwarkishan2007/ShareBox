@@ -50,6 +50,14 @@ class LocationService {
     return DEFAULT_LANDMARKS;
   }
 
+  getCampusLandmarksSync() {
+    const landmarks = store.getLocalDocs('landmarks');
+    if (landmarks.length > 0) {
+      return landmarks.sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+    return DEFAULT_LANDMARKS;
+  }
+
   getDefaultCentroid() {
     return DEFAULT_CAMPUS_COORDS;
   }

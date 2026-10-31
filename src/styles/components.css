@@ -882,35 +882,35 @@ a.btn-go-to-feed-sm:hover {
 .admin-section-glow {
   position: relative;
   border-radius: var(--radius-xl);
-  padding: 4px;
+  padding: 2px;
   margin-bottom: var(--space-6);
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Radiant Section Glow Underneath the Glass */
+/* Radiant Section Glow Underneath the Glass (Dimmed & Refined) */
 .glow-users {
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 30%, #3b82f6 60%, #93c5fd 100%);
-  box-shadow: 0 20px 50px -8px rgba(37, 99, 235, 0.4), 0 0 24px rgba(59, 130, 246, 0.25);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.45) 0%, rgba(59, 130, 246, 0.3) 50%, rgba(147, 197, 253, 0.35) 100%);
+  box-shadow: 0 10px 30px -6px rgba(37, 99, 235, 0.18), 0 0 14px rgba(59, 130, 246, 0.12);
 }
 
 .glow-requests {
-  background: linear-gradient(135deg, #047857 0%, #059669 30%, #10b981 60%, #6ee7b7 100%);
-  box-shadow: 0 20px 50px -8px rgba(5, 150, 105, 0.4), 0 0 24px rgba(16, 185, 129, 0.25);
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.45) 0%, rgba(16, 185, 129, 0.3) 50%, rgba(110, 231, 183, 0.35) 100%);
+  box-shadow: 0 10px 30px -6px rgba(5, 150, 105, 0.18), 0 0 14px rgba(16, 185, 129, 0.12);
 }
 
 .glow-events {
-  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 30%, #8b5cf6 60%, #c4b5fd 100%);
-  box-shadow: 0 20px 50px -8px rgba(124, 58, 237, 0.4), 0 0 24px rgba(139, 92, 246, 0.25);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.45) 0%, rgba(139, 92, 246, 0.3) 50%, rgba(196, 181, 253, 0.35) 100%);
+  box-shadow: 0 10px 30px -6px rgba(124, 58, 237, 0.18), 0 0 14px rgba(139, 92, 246, 0.12);
 }
 
 .glow-reports {
-  background: linear-gradient(135deg, #b91c1c 0%, #dc2626 30%, #ef4444 60%, #fca5a5 100%);
-  box-shadow: 0 20px 50px -8px rgba(220, 38, 38, 0.4), 0 0 24px rgba(239, 68, 68, 0.25);
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.45) 0%, rgba(239, 68, 68, 0.3) 50%, rgba(252, 165, 165, 0.35) 100%);
+  box-shadow: 0 10px 30px -6px rgba(220, 38, 38, 0.18), 0 0 14px rgba(239, 68, 68, 0.12);
 }
 
 .glow-landmarks {
-  background: linear-gradient(135deg, #b45309 0%, #d97706 30%, #f59e0b 60%, #fde68a 100%);
-  box-shadow: 0 20px 50px -8px rgba(217, 119, 6, 0.4), 0 0 24px rgba(245, 158, 11, 0.25);
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.45) 0%, rgba(245, 158, 11, 0.3) 50%, rgba(253, 230, 138, 0.35) 100%);
+  box-shadow: 0 10px 30px -6px rgba(217, 119, 6, 0.18), 0 0 14px rgba(245, 158, 11, 0.12);
 }
 
 /* The Blurred Glass Panel sitting on top of the background color */
@@ -919,14 +919,14 @@ a.btn-go-to-feed-sm:hover {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(28px) saturate(210%);
   -webkit-backdrop-filter: blur(28px) saturate(210%);
-  border-radius: calc(var(--radius-xl) - 4px);
-  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: calc(var(--radius-xl) - 2px);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   overflow: hidden;
 }
 
 /* Glass Header Bar */
 .admin-glass-header {
-  padding: var(--space-4) var(--space-6);
+  padding: 10px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -934,7 +934,7 @@ a.btn-go-to-feed-sm:hover {
 
 /* Filter Sub-bar */
 .admin-glass-filter-bar {
-  padding: var(--space-3) var(--space-5);
+  padding: 8px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -945,44 +945,55 @@ a.btn-go-to-feed-sm:hover {
 }
 
 /* ==========================================================
-   RESPECTIVE SECTION TABLES ON BLURRED GLASS
+   RESPECTIVE SECTION TABLES ON BLURRED GLASS (90% ZOOM & OPTIMIZED SPACING)
    ========================================================== */
+
+/* Universal 90% Table Container Zoom */
+.table-users-wrap,
+.table-requests-wrap,
+.table-events-wrap,
+.table-reports-wrap,
+.table-landmarks-wrap {
+  zoom: 0.9;
+  width: 100%;
+  overflow-x: auto;
+}
 
 /* Users Section Table: Frosted Blue Glass */
 .table-users-wrap {
   background: rgba(239, 246, 255, 0.7);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  overflow-x: auto;
 }
 
 .table-users {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .table-users thead tr {
   background: rgba(219, 234, 254, 0.92) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 2px solid #93c5fd !important;
+  border-bottom: 1.5px solid #93c5fd !important;
 }
 
 .table-users th {
   color: #1e3a8a !important;
-  font-weight: 700;
-  font-size: 0.92rem;
-  padding: var(--space-4) var(--space-4);
-  border-right: 1px solid rgba(191, 219, 254, 0.7);
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-right: 1px solid rgba(191, 219, 254, 0.6);
 }
 
 .table-users td {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid rgba(191, 219, 254, 0.5);
-  border-right: 1px solid rgba(191, 219, 254, 0.4);
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(191, 219, 254, 0.4);
+  border-right: 1px solid rgba(191, 219, 254, 0.3);
   color: #0f172a;
+  font-weight: 400;
 }
 
 .table-users tbody tr {
@@ -991,11 +1002,11 @@ a.btn-go-to-feed-sm:hover {
 }
 
 .table-users tbody tr:nth-child(even) {
-  background: rgba(239, 246, 255, 0.6);
+  background: rgba(239, 246, 255, 0.55);
 }
 
 .table-users tbody tr:hover {
-  background: rgba(191, 219, 254, 0.7) !important;
+  background: rgba(191, 219, 254, 0.65) !important;
 }
 
 /* Requests Section Table: Frosted Green/Emerald Glass */
@@ -1003,36 +1014,36 @@ a.btn-go-to-feed-sm:hover {
   background: rgba(236, 253, 245, 0.7);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  overflow-x: auto;
 }
 
 .table-requests {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .table-requests thead tr {
   background: rgba(209, 250, 229, 0.92) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 2px solid #6ee7b7 !important;
+  border-bottom: 1.5px solid #6ee7b7 !important;
 }
 
 .table-requests th {
   color: #064e3b !important;
-  font-weight: 700;
-  font-size: 0.92rem;
-  padding: var(--space-4) var(--space-4);
-  border-right: 1px solid rgba(167, 243, 208, 0.7);
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-right: 1px solid rgba(167, 243, 208, 0.6);
 }
 
 .table-requests td {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid rgba(167, 243, 208, 0.5);
-  border-right: 1px solid rgba(167, 243, 208, 0.4);
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(167, 243, 208, 0.4);
+  border-right: 1px solid rgba(167, 243, 208, 0.3);
   color: #0f172a;
+  font-weight: 400;
 }
 
 .table-requests tbody tr {
@@ -1041,11 +1052,11 @@ a.btn-go-to-feed-sm:hover {
 }
 
 .table-requests tbody tr:nth-child(even) {
-  background: rgba(236, 253, 245, 0.6);
+  background: rgba(236, 253, 245, 0.55);
 }
 
 .table-requests tbody tr:hover {
-  background: rgba(167, 243, 208, 0.7) !important;
+  background: rgba(167, 243, 208, 0.65) !important;
 }
 
 /* Events Section Table: Frosted Violet/Purple Glass */
@@ -1053,36 +1064,36 @@ a.btn-go-to-feed-sm:hover {
   background: rgba(245, 243, 255, 0.7);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  overflow-x: auto;
 }
 
 .table-events {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .table-events thead tr {
   background: rgba(237, 233, 254, 0.92) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 2px solid #c4b5fd !important;
+  border-bottom: 1.5px solid #c4b5fd !important;
 }
 
 .table-events th {
   color: #4c1d95 !important;
-  font-weight: 700;
-  font-size: 0.92rem;
-  padding: var(--space-4) var(--space-4);
-  border-right: 1px solid rgba(221, 214, 254, 0.7);
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-right: 1px solid rgba(221, 214, 254, 0.6);
 }
 
 .table-events td {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid rgba(221, 214, 254, 0.5);
-  border-right: 1px solid rgba(221, 214, 254, 0.4);
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(221, 214, 254, 0.4);
+  border-right: 1px solid rgba(221, 214, 254, 0.3);
   color: #0f172a;
+  font-weight: 400;
 }
 
 .table-events tbody tr {
@@ -1091,11 +1102,11 @@ a.btn-go-to-feed-sm:hover {
 }
 
 .table-events tbody tr:nth-child(even) {
-  background: rgba(245, 243, 255, 0.6);
+  background: rgba(245, 243, 255, 0.55);
 }
 
 .table-events tbody tr:hover {
-  background: rgba(221, 214, 254, 0.7) !important;
+  background: rgba(221, 214, 254, 0.65) !important;
 }
 
 /* Reports/Disputes Section Table: Frosted Red Glass */
@@ -1103,36 +1114,36 @@ a.btn-go-to-feed-sm:hover {
   background: rgba(254, 242, 242, 0.7);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  overflow-x: auto;
 }
 
 .table-reports {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .table-reports thead tr {
   background: rgba(254, 226, 226, 0.92) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 2px solid #fca5a5 !important;
+  border-bottom: 1.5px solid #fca5a5 !important;
 }
 
 .table-reports th {
   color: #991b1b !important;
-  font-weight: 700;
-  font-size: 0.92rem;
-  padding: var(--space-4) var(--space-4);
-  border-right: 1px solid rgba(254, 202, 202, 0.7);
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-right: 1px solid rgba(254, 202, 202, 0.6);
 }
 
 .table-reports td {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid rgba(254, 202, 202, 0.5);
-  border-right: 1px solid rgba(254, 202, 202, 0.4);
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(254, 202, 202, 0.4);
+  border-right: 1px solid rgba(254, 202, 202, 0.3);
   color: #0f172a;
+  font-weight: 400;
 }
 
 .table-reports tbody tr {
@@ -1141,11 +1152,11 @@ a.btn-go-to-feed-sm:hover {
 }
 
 .table-reports tbody tr:nth-child(even) {
-  background: rgba(254, 242, 242, 0.6);
+  background: rgba(254, 242, 242, 0.55);
 }
 
 .table-reports tbody tr:hover {
-  background: rgba(254, 202, 202, 0.7) !important;
+  background: rgba(254, 202, 202, 0.65) !important;
 }
 
 /* Landmarks Section Table: Frosted Amber Glass */
@@ -1153,36 +1164,36 @@ a.btn-go-to-feed-sm:hover {
   background: rgba(255, 251, 235, 0.7);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  overflow-x: auto;
 }
 
 .table-landmarks {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .table-landmarks thead tr {
   background: rgba(254, 243, 199, 0.92) !important;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 2px solid #fde68a !important;
+  border-bottom: 1.5px solid #fde68a !important;
 }
 
 .table-landmarks th {
   color: #92400e !important;
-  font-weight: 700;
-  font-size: 0.92rem;
-  padding: var(--space-4) var(--space-4);
-  border-right: 1px solid rgba(253, 230, 138, 0.7);
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 8px 12px;
+  border-right: 1px solid rgba(253, 230, 138, 0.6);
 }
 
 .table-landmarks td {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid rgba(253, 230, 138, 0.5);
-  border-right: 1px solid rgba(253, 230, 138, 0.4);
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(253, 230, 138, 0.4);
+  border-right: 1px solid rgba(253, 230, 138, 0.3);
   color: #0f172a;
+  font-weight: 400;
 }
 
 .table-landmarks tbody tr {
@@ -1191,9 +1202,9 @@ a.btn-go-to-feed-sm:hover {
 }
 
 .table-landmarks tbody tr:nth-child(even) {
-  background: rgba(255, 251, 235, 0.6);
+  background: rgba(255, 251, 235, 0.55);
 }
 
 .table-landmarks tbody tr:hover {
-  background: rgba(253, 230, 138, 0.7) !important;
+  background: rgba(253, 230, 138, 0.65) !important;
 }

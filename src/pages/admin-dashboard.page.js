@@ -15,12 +15,25 @@ export async function renderAdminDashboardPage(container, { user }) {
   let reqFilter = 'all'; // 'all' | 'open' | 'accepted' | 'completed'
   let reportFilter = 'all'; // 'all' | 'pending' | 'resolved'
 
-  const renderContent = async () => {
-    const allUsers = await store.getDocs('users');
-    const allRequests = await store.getDocs('requests');
-    const allEvents = await store.getDocs('events');
-    const allReports = await store.getDocs('damageReports');
-    const landmarks = await locationService.getCampusLandmarks();
+  const renderContent = async (useCache = false) => {
+    let allUsers, allRequests, allEvents, allReports, landmarks;
+
+    if (useCache) {
+      allUsers = store.getLocalDocs('users');
+      allRequests = store.getLocalDocs('requests');
+      allEvents = store.getLocalDocs('events');
+      allReports = store.getLocalDocs('damageReports');
+      landmarks = locationService.getCampusLandmarksSync();
+    } else {
+      // Parallel fast fetch from Supabase
+      [allUsers, allRequests, allEvents, allReports, landmarks] = await Promise.all([
+        store.getDocs('users'),
+        store.getDocs('requests'),
+        store.getDocs('events'),
+        store.getDocs('damageReports'),
+        locationService.getCampusLandmarks()
+      ]);
+    }
 
     const totalReqs = allRequests.length;
     const completedReqs = allRequests.filter(r => r.status === 'completed').length;
@@ -229,71 +242,71 @@ export async function renderAdminDashboardPage(container, { user }) {
               <!-- Member Profile -->
               <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4);">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                  <div style="width: 34px; height: 34px; border-radius: 50%; background: ${isPending ? '#fef3c7' : '#dbeafe'}; color: ${isPending ? '#b45309' : '#1d4ed8'}; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0; border: 1.5px solid ${isPending ? '#fde68a' : '#bfdbfe'}; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);">
+                  <div style="width: 32px; height: 32px; border-radius: 50%; background: ${isPending ? '#fef3c7' : '#dbeafe'}; color: ${isPending ? '#b45309' : '#1d4ed8'}; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; flex-shrink: 0; border: 1.5px solid ${isPending ? '#fde68a' : '#bfdbfe'}; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);">
                     ${escapeHTML((u.name || u.email || 'M')[0].toUpperCase())}
                   </div>
                   <div>
-                    <div style="font-weight: 700; display: flex; align-items: center; gap: 6px; color: #0f172a;">
-                      ${escapeHTML(u.name || 'Member')}
-                      ${isPending ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 9px; padding: 1px 5px; font-weight: 700;">REQUEST</span>` : isNew ? `<span class="badge" style="background: var(--color-success); color: white; font-size: 9px; padding: 1px 4px; font-weight: 700;">NEW</span>` : ''}
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span style="font-weight: 700; color: #0f172a; font-size: 0.94rem;">${escapeHTML(u.name || 'Member')}</span>
+                      ${isPending ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 9px; padding: 1px 5px; font-weight: normal;">REQUEST</span>` : isNew ? `<span class="badge" style="background: var(--color-success); color: white; font-size: 9px; padding: 1px 4px; font-weight: normal;">NEW</span>` : ''}
                     </div>
-                    <div class="text-xs" style="color: #475569; font-weight: 500;">${escapeHTML(u.phone || 'No phone')}</div>
+                    <div class="text-xs" style="color: #64748b; font-weight: normal;">${escapeHTML(u.phone || 'No phone')}</div>
                   </div>
                 </div>
               </td>
 
               <!-- Email Capsule -->
-              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4);">
-                <div style="font-size: var(--font-xs); font-family: monospace; color: #166534; background: rgba(240, 253, 244, 0.9); border: 1px solid #86efac; padding: 4px 10px; border-radius: var(--radius-sm); word-break: break-all; display: inline-block; font-weight: 600;" title="${escapeHTML(u.email)}">
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4); font-weight: normal;">
+                <div style="font-size: var(--font-xs); font-family: monospace; color: #166534; background: rgba(240, 253, 244, 0.9); border: 1px solid #86efac; padding: 3px 8px; border-radius: var(--radius-sm); word-break: break-all; display: inline-block; font-weight: normal;" title="${escapeHTML(u.email)}">
                   ${escapeHTML(u.email)}
                 </div>
               </td>
 
               <!-- Plaintext Password Capsule -->
-              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4);">
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4); font-weight: normal;">
                 <div class="flex items-center gap-2">
-                  <span class="user-pwd-display font-mono text-xs" data-uid="${escapeHTML(uid)}" data-pwd="${escapeHTML(pwd)}" style="background: rgba(241, 245, 249, 0.95); border: 1px solid #cbd5e1; color: #0f172a; font-weight: 700; padding: 4px 8px; border-radius: var(--radius-sm); letter-spacing: ${showAllPasswords ? 'normal' : '2px'};">
+                  <span class="user-pwd-display font-mono text-xs" data-uid="${escapeHTML(uid)}" data-pwd="${escapeHTML(pwd)}" style="background: rgba(241, 245, 249, 0.95); border: 1px solid #cbd5e1; color: #0f172a; font-weight: normal; padding: 3px 8px; border-radius: var(--radius-sm); letter-spacing: ${showAllPasswords ? 'normal' : '2px'};">
                     ${showAllPasswords ? escapeHTML(pwd) : '••••••••'}
                   </span>
-                  <button type="button" class="btn btn-secondary btn-xs toggle-single-pwd-btn glass-btn" data-uid="${escapeHTML(uid)}" style="font-size: 10px; padding: 2px 7px; background: rgba(255, 255, 255, 0.85); border: 1px solid #cbd5e1; color: #1e3a8a; font-weight: 600;">
+                  <button type="button" class="btn btn-secondary btn-xs toggle-single-pwd-btn glass-btn" data-uid="${escapeHTML(uid)}" style="font-size: 10px; padding: 2px 7px; background: rgba(255, 255, 255, 0.85); border: 1px solid #cbd5e1; color: #1e3a8a; font-weight: normal;">
                     ${showAllPasswords ? 'Hide' : 'Show'}
                   </button>
                 </div>
               </td>
 
               <!-- Department & Year -->
-              <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid var(--border-subtle);">
-                <div style="color: #9a3412; font-weight: 500;">${escapeHTML(u.department || 'General Branch')}</div>
-                <div class="text-muted">${escapeHTML(u.year ? `Year ${u.year}` : 'Standard')}</div>
+              <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(191, 219, 254, 0.4); font-weight: normal;">
+                <div style="color: #9a3412; font-weight: normal;">${escapeHTML(u.department || 'General Branch')}</div>
+                <div style="color: #64748b; font-weight: normal;">${escapeHTML(u.year ? `Year ${u.year}` : 'Standard')}</div>
               </td>
 
               <!-- Role Pill -->
-              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
-                <button class="badge change-role-btn" data-uid="${escapeHTML(uid)}" data-current-role="${escapeHTML(u.role || 'member')}" title="Click to modify role" style="cursor: pointer; border: 1px solid var(--border-subtle); background: ${u.role === 'admin' ? 'var(--color-primary)' : u.role === 'organizer' ? '#7e22ce' : 'var(--bg-subtle)'}; color: ${u.role === 'admin' || u.role === 'organizer' ? 'white' : 'inherit'};">
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4); font-weight: normal;">
+                <button class="badge change-role-btn" data-uid="${escapeHTML(uid)}" data-current-role="${escapeHTML(u.role || 'member')}" title="Click to modify role" style="cursor: pointer; border: 1px solid var(--border-subtle); background: ${u.role === 'admin' ? 'var(--color-primary)' : u.role === 'organizer' ? '#7e22ce' : 'var(--bg-subtle)'}; color: ${u.role === 'admin' || u.role === 'organizer' ? 'white' : 'inherit'}; font-weight: normal;">
                   ${escapeHTML(u.role ? u.role.toUpperCase() : 'MEMBER')}
                 </button>
               </td>
 
               <!-- Status Badge (Pending vs Active vs Blocked vs Disapproved) -->
-              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid var(--border-subtle);">
+              <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(191, 219, 254, 0.4); font-weight: normal;">
                 ${isPending ? `
-                  <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; border: 1px solid #fde68a;">
+                  <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: normal; border: 1px solid #fde68a;">
                     <span class="status-dot status-dot-warning" style="background: #f59e0b;"></span> Pending
                   </span>
                 ` : u.status === 'rejected' ? `
-                  <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #b91c1c; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.3);">
+                  <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #b91c1c; font-weight: normal; border: 1px solid rgba(239, 68, 68, 0.3);">
                     <span class="status-dot status-dot-danger"></span> Disapproved
                   </span>
                 ` : isBlocked ? `
-                  <span class="badge" style="background: #fee2e2; color: #991b1b;">
+                  <span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: normal;">
                     <span class="status-dot status-dot-danger"></span> Blocked
                   </span>
                 ` : `
-                  <span class="badge" style="background: #ecfdf5; color: #047857;">
+                  <span class="badge" style="background: #ecfdf5; color: #047857; font-weight: normal;">
                     <span class="status-dot status-dot-success"></span> Active
                   </span>
                 `}
-                ${isRestricted ? `<div class="text-xs text-danger" style="margin-top: 2px;">Restricted</div>` : ''}
+                ${isRestricted ? `<div class="text-xs text-danger" style="margin-top: 2px; font-weight: normal;">Restricted</div>` : ''}
               </td>
 
               <!-- Action Buttons -->
@@ -740,19 +753,19 @@ export async function renderAdminDashboardPage(container, { user }) {
                           ${escapeHTML(r.description || 'No description provided')}
                         </div>
                       </td>
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(167, 243, 208, 0.4);">
-                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #a7f3d0; color: #065f46; font-weight: 600;">${escapeHTML(r.category || 'General')}</span>
-                        <div class="text-xs" style="margin-top: 3px; color: #334155;">Qty: <strong style="color: #065f46;">${r.quantity || 1}</strong></div>
+                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(167, 243, 208, 0.4); font-weight: normal;">
+                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #a7f3d0; color: #065f46; font-weight: normal;">${escapeHTML(r.category || 'General')}</span>
+                        <div class="text-xs" style="margin-top: 3px; color: #475569; font-weight: normal;">Qty: ${r.quantity || 1}</div>
                       </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(167, 243, 208, 0.4);">
-                        <div style="color: #0f172a;">Requester: <strong style="color: #065f46;">${escapeHTML(r.requesterName || 'Student')}</strong></div>
-                        ${r.helperName ? `<div style="color: #059669; font-weight: 600; margin-top: 2px;">Helper: ${escapeHTML(r.helperName)}</div>` : '<div style="color: #64748b; margin-top: 2px;">No helper assigned yet</div>'}
+                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(167, 243, 208, 0.4); font-weight: normal;">
+                        <div style="color: #0f172a; font-weight: normal;">Requester: ${escapeHTML(r.requesterName || 'Student')}</div>
+                        ${r.helperName ? `<div style="color: #059669; font-weight: normal; margin-top: 2px;">Helper: ${escapeHTML(r.helperName)}</div>` : '<div style="color: #64748b; font-weight: normal; margin-top: 2px;">No helper assigned yet</div>'}
                       </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(167, 243, 208, 0.4); color: #334155; font-weight: 600;">
+                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(167, 243, 208, 0.4); color: #334155; font-weight: normal;">
                         ${r.neededBy ? new Date(r.neededBy).toLocaleDateString() : 'ASAP'}
                       </td>
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(167, 243, 208, 0.4);">
-                        <span class="badge badge-status-${escapeHTML(r.status || 'open')}">
+                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(167, 243, 208, 0.4); font-weight: normal;">
+                        <span class="badge badge-status-${escapeHTML(r.status || 'open')}" style="font-weight: normal;">
                           ${escapeHTML(r.status || 'OPEN')}
                         </span>
                       </td>
@@ -865,18 +878,18 @@ export async function renderAdminDashboardPage(container, { user }) {
                         </a>
                         <div class="text-xs" style="margin-top: 2px; color: #475569;">${escapeHTML(e.description || 'Campus coordination event.')}</div>
                       </td>
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(221, 214, 254, 0.4);">
-                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #c4b5fd; color: #6d28d9; font-weight: 600;">${escapeHTML(e.type || 'Event')}</span>
+                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(221, 214, 254, 0.4); font-weight: normal;">
+                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #c4b5fd; color: #6d28d9; font-weight: normal;">${escapeHTML(e.type || 'Event')}</span>
                       </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(221, 214, 254, 0.4); color: #0f172a; font-weight: 500;">
+                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(221, 214, 254, 0.4); color: #0f172a; font-weight: normal;">
                         ${escapeHTML(e.venue || 'Campus Main')}
                       </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(221, 214, 254, 0.4);">
-                        <span class="font-mono" style="background: rgba(255, 255, 255, 0.95); border: 1px solid #c4b5fd; color: #5b21b6; font-weight: 700; padding: 2px 7px; border-radius: var(--radius-sm); letter-spacing: 1px;">
+                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(221, 214, 254, 0.4); font-weight: normal;">
+                        <span class="font-mono" style="background: rgba(255, 255, 255, 0.95); border: 1px solid #c4b5fd; color: #5b21b6; font-weight: normal; padding: 2px 7px; border-radius: var(--radius-sm); letter-spacing: 1px;">
                           ${escapeHTML(e.joinCode || 'N/A')}
                         </span>
                       </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(221, 214, 254, 0.4); color: #0f172a; font-weight: 600;">
+                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(221, 214, 254, 0.4); color: #0f172a; font-weight: normal;">
                         ${e.memberCount || 1} registered
                       </td>
                       <td style="padding: var(--space-3) var(--space-4); text-align: right; white-space: nowrap;">
@@ -1187,11 +1200,11 @@ export async function renderAdminDashboardPage(container, { user }) {
                         <div style="font-weight: 700; color: #92400e; font-size: 0.95rem;">${escapeHTML(lm.name)}</div>
                         <div class="text-xs" style="color: #64748b; margin-top: 2px;">Campus handover waypoint</div>
                       </td>
-                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(253, 230, 138, 0.4);">
-                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #fde68a; color: #b45309; font-weight: 600;">${escapeHTML(lm.category)}</span>
+                      <td style="padding: var(--space-3) var(--space-4); border-right: 1px solid rgba(253, 230, 138, 0.4); font-weight: normal;">
+                        <span class="badge" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #fde68a; color: #b45309; font-weight: normal;">${escapeHTML(lm.category)}</span>
                       </td>
-                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(253, 230, 138, 0.4);">
-                        <span class="font-mono" style="background: rgba(255, 255, 255, 0.95); border: 1px solid #fde68a; color: #78350f; font-weight: 700; padding: 3px 8px; border-radius: var(--radius-sm);">
+                      <td style="padding: var(--space-3) var(--space-4); font-size: var(--font-xs); border-right: 1px solid rgba(253, 230, 138, 0.4); font-weight: normal;">
+                        <span class="font-mono" style="background: rgba(255, 255, 255, 0.95); border: 1px solid #fde68a; color: #78350f; font-weight: normal; padding: 3px 8px; border-radius: var(--radius-sm);">
                           Lat: ${lm.lat}, Lng: ${lm.lng}
                         </span>
                       </td>
@@ -1314,14 +1327,22 @@ export async function renderAdminDashboardPage(container, { user }) {
       });
     }
 
-    // Main Tab button bindings
+    // Main Tab button bindings (Instant 0ms tab switch from cache, background refresh)
     container.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         activeTab = btn.getAttribute('data-tab');
-        renderContent();
+        await renderContent(true);
+        renderContent(false);
       });
     });
   };
 
-  await renderContent();
+  // Instant 0ms Paint from cache, followed by background parallel refresh
+  const cachedUsers = store.getLocalDocs('users');
+  if (cachedUsers && cachedUsers.length > 0) {
+    await renderContent(true);
+    renderContent(false);
+  } else {
+    await renderContent(false);
+  }
 }

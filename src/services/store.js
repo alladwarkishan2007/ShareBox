@@ -754,6 +754,16 @@ export const store = {
     return Object.values(table);
   },
 
+  getLocalDocs(colName) {
+    if (colName === 'landmarks') {
+      const lm = getLocalTable('landmarks');
+      if (Object.keys(lm).length === 0) return DEFAULT_LANDMARKS;
+      return Object.values(lm);
+    }
+    const table = getLocalTable(colName);
+    return Object.values(table);
+  },
+
   _realtimeChannels: new Map(),
 
   subscribe(colName, filterFn, callback) {
